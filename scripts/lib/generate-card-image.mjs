@@ -1,10 +1,28 @@
-import { createCanvas } from 'canvas';
+import { createCanvas, registerFont } from 'canvas';
+import fs from 'node:fs';
 
 const WIDTH = 1200;
 const HEIGHT = 675;
 const BG_COLOR = '#F1EADF'; // ベージュ
 const ACCENT_COLOR = '#2F4F3F'; // 深緑
 const TEXT_COLOR = '#33302B';
+
+// GitHub Actions(Ubuntu)にインストールされる Noto Sans CJK JP を使う。
+// 見つからない場合は登録をスキップし、システムのデフォルトフォントにフォールバックする。
+const FONT_CANDIDATES = [
+  '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
+  '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+];
+const FONT_FAMILY = 'NotoSansCJK';
+let fontRegistered = false;
+for (const fontPath of FONT_CANDIDATES) {
+  if (fs.existsSync(fontPath)) {
+    registerFont(fontPath, { family: FONT_FAMILY });
+    fontRegistered = true;
+    break;
+  }
+}
+const FONT_NAME = fontRegistered ? FONT_FAMILY : 'sans-serif';
 
 function wrapText(ctx, text, maxWidth) {
   const chars = Array.from(text);
@@ -51,7 +69,7 @@ export function generateCardImage(mainText, label = '比べて選ぶ暮らしノ
 
   // メインテキスト
   ctx.fillStyle = TEXT_COLOR;
-  ctx.font = 'bold 56px sans-serif';
+  ctx.font = `bold 56px "${FONT_NAME}"`;
   ctx.textBaseline = 'top';
   const lines = wrapText(ctx, mainText, WIDTH - 200);
   const lineHeight = 76;
@@ -63,7 +81,7 @@ export function generateCardImage(mainText, label = '比べて選ぶ暮らしノ
   }
 
   // ラベル(右下)
-  ctx.font = '32px sans-serif';
+  ctx.font = `32px "${FONT_NAME}"`;
   ctx.fillStyle = ACCENT_COLOR;
   const labelWidth = ctx.measureText(label).width;
   ctx.fillText(label, WIDTH - labelWidth - 80, HEIGHT - 140);
