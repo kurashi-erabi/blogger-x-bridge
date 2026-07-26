@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { TwitterApi } from 'twitter-api-v2';
+import { generateCardImage } from './lib/generate-card-image.mjs';
 
 const ROOT = path.resolve(new URL('.', import.meta.url).pathname, '..');
 const TOPICS_PATH = path.join(ROOT, 'data/impression-topics.json');
@@ -71,8 +72,15 @@ ${topic}
   });
   const rw = twitterClient.readWrite;
 
-  await rw.v2.tweet(tweetText);
-  console.log(`インプレッション稼ぎ投稿をしました:\n[テーマ: ${topic}]\n${tweetText}`);
+  // テーマを見出しにした画像カードを生成し、メディアとしてアップロード
+  const imageBuffer = generateCardImage(topic);
+  const mediaId = await rw.v1.uploadMedia(imageBuffer, { mimeType: 'image/png' });
+
+  await rw.v2.tweet({
+    text: tweetText,
+    media: { media_ids: [mediaId] },
+  });
+  console.log(`インプレッション稼ぎ投稿(画像付き)をしました:\n[テーマ: ${topic}]\n${tweetText}`);
 
   // 直近使ったテーマを記録(直近5件を保持して、しばらく重複を避ける)
   const recent = [topic, ...(history.recent || [])].slice(0, 5);
