@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check-and-post": "node scripts/check-and-post.mjs"
+    "check-and-post": "node scripts/check-and-post.mjs",
+    "post-impression": "node scripts/post-impression-tweet.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
