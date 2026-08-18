@@ -153,6 +153,22 @@ function makeLacqueredTexture(base, grain) {
   return canvas;
 }
 
+function makeCeilingTile(base, line, cells) {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEXTURE_SIZE; canvas.height = TEXTURE_SIZE;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = `rgb(${base.r},${base.g},${base.b})`;
+  ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+  ctx.strokeStyle = `rgb(${line.r},${line.g},${line.b})`;
+  ctx.lineWidth = 2;
+  for (let i = 0; i <= cells; i++) {
+    const p = (i / cells) * TEXTURE_SIZE;
+    ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, TEXTURE_SIZE); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(TEXTURE_SIZE, p); ctx.stroke();
+  }
+  return canvas;
+}
+
 const THEMES = {
   ryokan: {
     key: "ryokan",
@@ -174,10 +190,13 @@ const THEMES = {
       { x0: 3,  y0: 8, x1: 5,  y1: 8 }, { x0: 10, y0: 8, x1: 12, y1: 8 }, { x0: 16, y0: 8, x1: 18, y1: 8 },
     ],
     spawn: { x: 11.5, y: 7.5, angle: 0 },
+    savePoint: { x: 11.5, y: 7.5 },
+    savePointName: "旅館の駐車場に停めた車",
     accent: "#8a5c42",
     ceil: ["#050608", "#161a24"],
     floor: ["#1b130e", "#0b0806"],
     texture: makeWoodTexture({ r: 138, g: 92, b: 66 }, { r: 60, g: 38, b: 22 }, true),
+    ceilingTile: makeCeilingTile({ r: 40, g: 30, b: 22 }, { r: 20, g: 14, b: 9 }, 3),
   },
   mansion: {
     key: "mansion",
@@ -199,10 +218,13 @@ const THEMES = {
       { x0: 11, y0: 6, x1: 13, y1: 8 },
     ],
     spawn: { x: 9, y: 7, angle: 0 },
+    savePoint: { x: 9, y: 7 },
+    savePointName: "門前に停めた車",
     accent: "#606474",
     ceil: ["#04050a", "#12141f"],
     floor: ["#15171d", "#08090c"],
     texture: makeStoneTexture({ r: 96, g: 100, b: 116 }, { r: 40, g: 42, b: 50 }),
+    ceilingTile: makeCeilingTile({ r: 34, g: 35, b: 42 }, { r: 16, g: 17, b: 22 }, 2),
   },
   shrine: {
     key: "shrine",
@@ -224,10 +246,13 @@ const THEMES = {
       { x0: 6, y0: 9, x1: 9,  y1: 11 }, { x0: 11, y0: 9, x1: 14, y1: 11 },
     ],
     spawn: { x: 10, y: 1.5, angle: Math.PI / 2 },
+    savePoint: { x: 10, y: 1.5 },
+    savePointName: "鳥居前の道に停めた車",
     accent: "#964637",
     ceil: ["#0a0505", "#1f1210"],
     floor: ["#1f140d", "#0c0704"],
     texture: makeLacqueredTexture({ r: 150, g: 70, b: 55 }, { r: 80, g: 25, b: 18 }),
+    ceilingTile: makeCeilingTile({ r: 42, g: 24, b: 18 }, { r: 22, g: 10, b: 8 }, 4),
   },
 };
 const THEME_KEYS = Object.keys(THEMES);
@@ -411,6 +436,7 @@ const TURN_SPEED = 2.4;
 const MOUSE_SENS = 0.0028;
 const TOUCH_LOOK_SENS = 0.006;
 const COL_RADIUS = 0.18;
+const BOB_SPEED = 9;
 function fovRadians() { return (save.settings.fovDeg || 66) * Math.PI / 180; }
 
 function startCase(idx) {
@@ -447,6 +473,8 @@ function startCase(idx) {
     ended: false,
     pendingEnd: false,
     stunnedUntil: 0,
+    bobPhase: 0,
+    useAnim: null,
     grid: buildMap(theme),
     player: { x: theme.spawn.x, y: theme.spawn.y, angle: theme.spawn.angle },
   };
@@ -508,10 +536,13 @@ function updatePlayer(dt) {
   if (touchMove.active) { fAxis += -touchMove.y; rAxis += touchMove.x; }
   const len = Math.hypot(fAxis, rAxis);
   if (len > 1) { fAxis /= len; rAxis /= len; }
+  const moveInput = Math.min(1, len);
 
   const dx = (fwd.x * fAxis + right.x * rAxis) * MOVE_SPEED * dt;
   const dy = (fwd.y * fAxis + right.y * rAxis) * MOVE_SPEED * dt;
   tryMove(dx, dy);
+
+  if (moveInput > 0.05) inv.bobPhase += moveInput * BOB_SPEED * dt;
 }
 
 function tryMove(dx, dy) {
@@ -596,6 +627,13 @@ window.addEventListener("resize", () => { if (investigation && !investigation.en
 
 const FP_MAX_RAYS = 480;
 
+function getCeilingPattern(ctx, theme) {
+  if (!theme._ceilingPattern) {
+    theme._ceilingPattern = ctx.createPattern(theme.ceilingTile, "repeat");
+  }
+  return theme._ceilingPattern;
+}
+
 function renderFpFrame() {
   const canvas = document.getElementById("fpCanvas");
   if (!canvas) return;
@@ -606,17 +644,28 @@ function renderFpFrame() {
   const inv = investigation;
   const theme = inv.theme;
 
-  const ceilGrad = ctx.createLinearGradient(0, 0, 0, H / 2);
+  const bobY = Math.sin(inv.bobPhase * 2) * H * 0.006;
+  const bobX = Math.cos(inv.bobPhase) * H * 0.003;
+  const margin = H * 0.03;
+
+  ctx.save();
+  ctx.translate(bobX, bobY);
+
+  const ceilGrad = ctx.createLinearGradient(0, -margin, 0, H / 2);
   ceilGrad.addColorStop(0, theme.ceil[0]);
   ceilGrad.addColorStop(1, theme.ceil[1]);
   ctx.fillStyle = ceilGrad;
-  ctx.fillRect(0, 0, W, H / 2);
+  ctx.fillRect(0, -margin, W, H / 2 + margin);
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = getCeilingPattern(ctx, theme);
+  ctx.fillRect(0, -margin, W, H / 2 + margin);
+  ctx.globalAlpha = 1;
 
   const floorGrad = ctx.createLinearGradient(0, H / 2, 0, H);
   floorGrad.addColorStop(0, theme.floor[0]);
   floorGrad.addColorStop(1, theme.floor[1]);
   ctx.fillStyle = floorGrad;
-  ctx.fillRect(0, H / 2, W, H / 2);
+  ctx.fillRect(0, H / 2, W, H / 2 + margin);
 
   const grid = inv.grid;
   const p = inv.player;
@@ -637,6 +686,57 @@ function renderFpFrame() {
     ctx.fillStyle = `rgba(0,0,0,${(1 - shade).toFixed(3)})`;
     ctx.fillRect(dx0, dy0, colWidth + 1, wallHeight);
   }
+
+  ctx.restore();
+
+  drawHandViewmodel(ctx, W, H, inv);
+}
+
+function drawHandViewmodel(ctx, W, H, inv) {
+  const handBobX = Math.cos(inv.bobPhase * 0.5) * H * 0.006;
+  const handBobY = Math.abs(Math.sin(inv.bobPhase)) * H * 0.02;
+
+  let useOffset = 0;
+  if (inv.useAnim) {
+    const t = Math.min(1, (performance.now() - inv.useAnim.start) / inv.useAnim.duration);
+    useOffset = Math.sin(t * Math.PI) * H * 0.07;
+    if (t >= 1) inv.useAnim = null;
+  }
+
+  const size = Math.min(W, H) * 0.24;
+  const baseX = W * 0.86;
+  const baseY = H * 1.05;
+  const handX = baseX + handBobX;
+  const handY = baseY + handBobY - useOffset;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(24,18,14,0.94)";
+  ctx.beginPath();
+  ctx.ellipse(handX, handY, size * 0.55, size * 0.95, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(handX + size * 0.12, handY - size * 0.1, size * 0.4, size * 0.7, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (inv.selectedTool) {
+    ctx.font = `${Math.round(size * 0.6)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(TOOL_ICONS[inv.selectedTool] || "🔧", handX - size * 0.18, handY - size * 0.68);
+  }
+  ctx.restore();
+}
+
+const SAVE_POINT_RADIUS = 1.3;
+
+function nearSavePoint(inv) {
+  const sp = inv.theme.savePoint;
+  return Math.hypot(inv.player.x - sp.x, inv.player.y - sp.y) <= SAVE_POINT_RADIUS;
+}
+
+function playUseAnimation() {
+  investigation.useAnim = { start: performance.now(), duration: 450 };
 }
 
 function updateRoomPrompt() {
@@ -644,6 +744,18 @@ function updateRoomPrompt() {
   if (!el) return;
   const inv = investigation;
   if (!inv || inv.ended) { el.classList.add("hidden"); return; }
+
+  if (nearSavePoint(inv)) {
+    el.classList.remove("hidden");
+    el.classList.add("save-point");
+    el.classList.remove("done");
+    el.textContent = inv.sanity >= inv.sanityMax
+      ? `${inv.theme.savePointName}（サニティは満タンだ）`
+      : `${inv.theme.savePointName}で一息つく（Eキー / タップ）`;
+    return;
+  }
+  el.classList.remove("save-point");
+
   const idx = roomIndexAt(inv.player.x, inv.player.y, inv.roomRects);
   if (idx === null) { el.classList.add("hidden"); return; }
   const room = inv.caseData.rooms[idx];
@@ -661,6 +773,18 @@ function tryInteract() {
   const inv = investigation;
   if (!inv || inv.ended) return;
   if (inv.stunnedUntil && performance.now() < inv.stunnedUntil) return;
+
+  if (nearSavePoint(inv)) {
+    if (inv.sanity >= inv.sanityMax) { logEvent(`${inv.theme.savePointName}：今はこれ以上休む必要はなさそうだ。`, ""); return; }
+    inv.sanity = Math.min(inv.sanityMax, inv.sanity + 25);
+    inv.time = Math.max(0, inv.time - 15);
+    logEvent(`${inv.theme.savePointName}で一息ついた。サニティが回復した。`, "result-good");
+    updateHud();
+    playUseAnimation();
+    if (inv.time <= 0) { endCase(false, "time"); }
+    return;
+  }
+
   const idx = roomIndexAt(inv.player.x, inv.player.y, inv.roomRects);
   if (idx === null) { logEvent("ここは廊下だ。部屋の中で調べよう。", ""); return; }
   const room = inv.caseData.rooms[idx];
@@ -714,6 +838,7 @@ function searchRoom(room) {
   inv.searchedRooms.add(room);
   inv.time -= 9;
   inv.sanity -= (6 + inv.rankIdx) * (inv.charmActive ? 0.6 : 1);
+  playUseAnimation();
 
   const evidenceKey = inv.roomEvidence[room];
   if (evidenceKey && EVIDENCE[evidenceKey].tool === inv.selectedTool && !inv.foundEvidence.has(evidenceKey)) {

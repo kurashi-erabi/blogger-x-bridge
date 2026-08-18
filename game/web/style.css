@@ -257,6 +257,7 @@ body.fp-active { overflow: hidden; }
   white-space: nowrap;
 }
 .fp-prompt.done { background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--line); }
+.fp-prompt.save-point { background: var(--good); color: #0e1a12; font-weight: 700; }
 .fp-prompt.hidden { display: none; }
 
 .fp-joystick-base {
