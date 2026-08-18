@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>怪異捜査ファイル（プロトタイプ）</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -63,14 +63,21 @@
         </div>
 
         <div id="fpHotbar" class="fp-hotbar"></div>
+
+        <div class="fp-rotate-hint">
+          <div class="fp-rotate-icon">📱</div>
+          <p>この調査パートは横画面推奨です。<br>端末を横向きにしてください。</p>
+        </div>
       </div>
 
       <p class="hint fp-help">PC: マウスで視点操作（画面クリックでロック）・WASDで移動・Eで調べる／スマホ: 操作の配置は設定で変更できます（初期設定は移動が右側）</p>
 
       <div id="fpJournalPanel" class="overlay-panel hidden">
-        <h3>調査ジャーナル（発見した証拠）</h3>
-        <ul id="journalList" class="journal-list"></ul>
-        <button id="btnJournalClose" class="secondary-btn">閉じる</button>
+        <div class="overlay-card">
+          <h3>調査ジャーナル（発見した証拠）</h3>
+          <ul id="journalList" class="journal-list"></ul>
+          <button id="btnJournalClose" class="secondary-btn">閉じる</button>
+        </div>
       </div>
     </section>
 

@@ -175,6 +175,7 @@ const navBtns = document.querySelectorAll(".nav-btn");
 function showScreen(id) {
   screens.forEach(s => s.classList.toggle("active", s.id === "screen-" + id));
   navBtns.forEach(b => b.classList.toggle("active", b.dataset.nav === id));
+  document.body.classList.toggle("fp-active", id === "investigation");
 }
 
 navBtns.forEach(b => b.addEventListener("click", () => {
@@ -323,7 +324,8 @@ function startCase(idx) {
 function gameLoop(ts) {
   if (!investigation || investigation.ended) { animId = null; return; }
   const screenActive = document.getElementById("screen-investigation").classList.contains("active");
-  if (!screenActive) {
+  const blockedByOrientation = window.matchMedia("(orientation: portrait)").matches;
+  if (!screenActive || blockedByOrientation) {
     lastFrameTime = 0;
     animId = requestAnimationFrame(gameLoop);
     return;
@@ -794,13 +796,12 @@ fpViewport.addEventListener("pointerdown", e => {
   const isRightHalf = localX >= rect.width / 2;
   const moveIsHere = save.settings.controlSide === "left" ? !isRightHalf : isRightHalf;
   if (moveIsHere) {
-    const anchor = document.getElementById("fpJoystickBase").getBoundingClientRect();
     touchMove.pointerId = e.pointerId;
-    touchMove.originX = anchor.left + anchor.width / 2;
-    touchMove.originY = anchor.top + anchor.height / 2;
+    touchMove.originX = e.clientX;
+    touchMove.originY = e.clientY;
     touchMove.active = true;
     touchMove.x = 0; touchMove.y = 0;
-    document.getElementById("fpJoystickBase").classList.remove("hidden");
+    positionJoystick(e.clientX - rect.left, e.clientY - rect.top);
   } else {
     touchLook.pointerId = e.pointerId;
     touchLook.lastX = e.clientX;
@@ -839,6 +840,12 @@ document.addEventListener("mousemove", e => {
   }
 });
 
+function positionJoystick(localX, localY) {
+  const base = document.getElementById("fpJoystickBase");
+  base.style.left = `${localX}px`;
+  base.style.top = `${localY}px`;
+  base.classList.remove("hidden");
+}
 function updateJoystickKnob(dx, dy) {
   document.getElementById("fpJoystickKnob").style.transform = `translate(${dx}px, ${dy}px)`;
 }

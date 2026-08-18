@@ -136,24 +136,41 @@ button { font-family: inherit; }
 .event-log.result-good { color: #8fe8b6; }
 .event-log.result-bad { color: #ff9d9d; }
 
-/* ---- 一人称視点（レイキャスティング） ---- */
+/* ---- 一人称視点（レイキャスティング・横画面フルスクリーン） ---- */
+body.fp-active { overflow: hidden; }
+
 .fp-screen { display: none; }
-.fp-screen.active { display: flex; flex-direction: column; gap: 10px; }
+.fp-screen.active {
+  display: flex; flex-direction: column; gap: 0;
+  position: fixed; inset: 0; z-index: 200;
+  background: #000;
+}
 
 #fpViewport {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  max-height: 62vh;
   background: #000;
-  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid var(--line);
   touch-action: none;
   user-select: none;
   cursor: crosshair;
 }
 #fpCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.fp-rotate-hint { display: none; }
+@media (orientation: portrait) {
+  .fp-screen.active .fp-rotate-hint {
+    display: flex; position: fixed; inset: 0; z-index: 300;
+    background: #0e0f14; color: #e8e6f0;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; text-align: center; padding: 24px;
+  }
+}
+.fp-rotate-icon { font-size: 3rem; animation: fpRotatePulse 1.6s ease-in-out infinite; }
+@keyframes fpRotatePulse { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+@media (prefers-reduced-motion: reduce) { .fp-rotate-icon { animation: none; } }
 
 #fpVignette {
   position: absolute; inset: 0; pointer-events: none;
@@ -216,7 +233,7 @@ button { font-family: inherit; }
 .fp-prompt {
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   background: var(--accent);
   color: white;
@@ -235,11 +252,9 @@ button { font-family: inherit; }
 .fp-joystick-base {
   position: absolute; width: 88px; height: 88px; border-radius: 50%;
   background: #ffffff14; border: 1px solid #ffffff33;
-  bottom: 22px;
+  transform: translate(-50%,-50%);
   pointer-events: none;
 }
-#fpViewport.ctrl-right .fp-joystick-base { right: 22px; left: auto; }
-#fpViewport.ctrl-left .fp-joystick-base { left: 22px; right: auto; }
 .fp-joystick-base.hidden { display: none; }
 .fp-joystick-knob {
   position: absolute; top: 50%; left: 50%; width: 38px; height: 38px; border-radius: 50%;
@@ -249,15 +264,25 @@ button { font-family: inherit; }
 
 #fpHud {
   position: absolute; top: 0; left: 0; right: 0;
-  padding: 10px 14px;
+  padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left));
   pointer-events: none;
   background: linear-gradient(180deg, #000a, transparent);
 }
 
-.fp-help { text-align: center; }
+.fp-help {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: .78rem;
+  padding: 8px max(14px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  background: #000;
+  margin: 0;
+  flex: 0 0 auto;
+}
 
 .fp-action-cluster {
-  position: absolute; top: 14px; right: 14px;
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
   display: flex; flex-direction: column; gap: 8px;
 }
 .fp-action-btn {
@@ -271,20 +296,30 @@ button { font-family: inherit; }
 .fp-action-btn:disabled { opacity: .35; cursor: default; }
 
 .fp-hotbar {
-  position: absolute; bottom: 20px;
+  position: absolute; bottom: max(20px, env(safe-area-inset-bottom));
   display: flex; flex-wrap: wrap; gap: 8px;
   max-width: 56%;
 }
-#fpViewport.ctrl-right .fp-hotbar { left: 14px; }
-#fpViewport.ctrl-left .fp-hotbar { right: 14px; }
+#fpViewport.ctrl-right .fp-hotbar { left: max(14px, env(safe-area-inset-left)); }
+#fpViewport.ctrl-left .fp-hotbar { right: max(14px, env(safe-area-inset-right)); }
 
 .overlay-panel {
+  position: fixed; inset: 0; z-index: 220;
+  background: #000a;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.overlay-panel.hidden { display: none; }
+.overlay-card {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 14px;
+  padding: 18px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
 }
-.overlay-panel.hidden { display: none; }
 
 .fp-tool-btn {
   width: 46px; height: 46px; border-radius: 50%;
