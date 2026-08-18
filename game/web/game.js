@@ -60,8 +60,6 @@ const ROSTER = [
   { id: "shuten",   name: "酒呑童子",   rank: "SS", evi: ["temp", "evp", "ofuda"],         flavor: "伝説級の怪異。最も脅かしが激しく、報酬も最大。" },
 ];
 
-const ROOM_POOL = ["客間", "廊下の突き当り", "台所", "浴室", "離れの庭", "蔵", "二階の寝室", "神棚の間", "地下室", "図書室", "縁側", "納戸"];
-
 const RANK_INDEX = (r) => RANKS.indexOf(r);
 
 const SCARE_LINES = [
@@ -73,31 +71,99 @@ const SCARE_LINES = [
   "背後に気配を感じ、思わず振り返った。",
 ];
 
-/* ============ 一人称マップ定義（レイキャスティング用グリッド） ============ */
+/* ============ 一人称マップ定義（マップごとに間取り・配色を分ける） ============ */
 /*
-  中央の廊下を軸に6部屋（上段3・下段3）を配置した固定間取り。
-  1マス=1グリッド単位。0=床、1=壁。各部屋は廊下との間に扉（1マスの隙間）を持つ。
+  各テーマは roomRects（部屋6室）と corridorRects（通路・接続部）の矩形の
+  「和集合」でグリッドを構成する。矩形同士が辺で接していれば自動的に繋がる。
+  ・旅館：中央の一直線の廊下を軸に部屋が両側に並ぶ、王道の間取り
+  ・洋館：玄関ホールを中心に部屋が放射状につながる洋館ミステリ定番のハブ型
+  ・神社：参道を奥へ進むほど深部（本殿）に至る、和風ホラーで馴染みの一本道型
 */
-const GRID_W = 21, GRID_H = 15;
-const CORRIDOR_Y = 7;
-const ROOM_RECTS = [
-  { x0: 1,  y0: 1, x1: 6,  y1: 5 },
-  { x0: 8,  y0: 1, x1: 12, y1: 5 },
-  { x0: 14, y0: 1, x1: 19, y1: 5 },
-  { x0: 1,  y0: 9, x1: 6,  y1: 13 },
-  { x0: 8,  y0: 9, x1: 12, y1: 13 },
-  { x0: 14, y0: 9, x1: 19, y1: 13 },
-];
-const DOOR_X = [3, 10, 16, 3, 10, 16]; // left edge of each 2-cell-wide doorway
+const THEMES = {
+  ryokan: {
+    key: "ryokan",
+    label: "旅館",
+    names: ["古い旅館", "峠の温泉旅館", "山あいの湯宿"],
+    roomNames: ["客室『松』", "客室『竹』", "宴会場", "大浴場", "帳場", "離れ"],
+    gridW: 21, gridH: 15,
+    roomRects: [
+      { x0: 1,  y0: 1, x1: 6,  y1: 5 },
+      { x0: 8,  y0: 1, x1: 12, y1: 5 },
+      { x0: 14, y0: 1, x1: 19, y1: 5 },
+      { x0: 1,  y0: 9, x1: 6,  y1: 13 },
+      { x0: 8,  y0: 9, x1: 12, y1: 13 },
+      { x0: 14, y0: 9, x1: 19, y1: 13 },
+    ],
+    corridorRects: [
+      { x0: 1, y0: 7, x1: 19, y1: 7 },
+      { x0: 3,  y0: 6, x1: 5,  y1: 6 }, { x0: 10, y0: 6, x1: 12, y1: 6 }, { x0: 16, y0: 6, x1: 18, y1: 6 },
+      { x0: 3,  y0: 8, x1: 5,  y1: 8 }, { x0: 10, y0: 8, x1: 12, y1: 8 }, { x0: 16, y0: 8, x1: 18, y1: 8 },
+    ],
+    spawn: { x: 11.5, y: 7.5, angle: 0 },
+    wallRGB: { r: 138, g: 92, b: 66 },
+    accent: "#8a5c42",
+    ceil: ["#050608", "#161a24"],
+    floor: ["#1b130e", "#0b0806"],
+  },
+  mansion: {
+    key: "mansion",
+    label: "洋館",
+    names: ["洋館の廃墟", "旧邸宅", "丘の上の洋館"],
+    roomNames: ["書斎", "大広間", "応接間", "温室", "塔の部屋", "地下室"],
+    gridW: 19, gridH: 15,
+    roomRects: [
+      { x0: 7,  y0: 1,  x1: 11, y1: 4 },
+      { x0: 7,  y0: 10, x1: 11, y1: 13 },
+      { x0: 2,  y0: 5,  x1: 5,  y1: 9 },
+      { x0: 13, y0: 5,  x1: 16, y1: 9 },
+      { x0: 13, y0: 1,  x1: 16, y1: 4 },
+      { x0: 2,  y0: 10, x1: 5,  y1: 13 },
+    ],
+    corridorRects: [
+      { x0: 7, y0: 5, x1: 11, y1: 9 },
+      { x0: 5, y0: 6, x1: 7,  y1: 8 },
+      { x0: 11, y0: 6, x1: 13, y1: 8 },
+    ],
+    spawn: { x: 9, y: 7, angle: 0 },
+    wallRGB: { r: 96, g: 100, b: 116 },
+    accent: "#606474",
+    ceil: ["#04050a", "#12141f"],
+    floor: ["#15171d", "#08090c"],
+  },
+  shrine: {
+    key: "shrine",
+    label: "神社",
+    names: ["山中の古社", "荒れた神社", "忘れられた境内"],
+    roomNames: ["手水舎", "社務所", "神楽殿", "絵馬堂", "拝殿", "本殿"],
+    gridW: 21, gridH: 17,
+    roomRects: [
+      { x0: 2,  y0: 2,  x1: 6,  y1: 5 },
+      { x0: 14, y0: 2,  x1: 18, y1: 5 },
+      { x0: 2,  y0: 8,  x1: 6,  y1: 11 },
+      { x0: 14, y0: 8,  x1: 18, y1: 11 },
+      { x0: 2,  y0: 13, x1: 9,  y1: 15 },
+      { x0: 11, y0: 13, x1: 19, y1: 15 },
+    ],
+    corridorRects: [
+      { x0: 9, y0: 1, x1: 11, y1: 15 },
+      { x0: 6, y0: 3, x1: 9,  y1: 5 }, { x0: 11, y0: 3, x1: 14, y1: 5 },
+      { x0: 6, y0: 9, x1: 9,  y1: 11 }, { x0: 11, y0: 9, x1: 14, y1: 11 },
+    ],
+    spawn: { x: 10, y: 1.5, angle: Math.PI / 2 },
+    wallRGB: { r: 150, g: 70, b: 55 },
+    accent: "#964637",
+    ceil: ["#0a0505", "#1f1210"],
+    floor: ["#1f140d", "#0c0704"],
+  },
+};
+const THEME_KEYS = Object.keys(THEMES);
 
-function buildMap() {
+function buildMap(theme) {
   const grid = [];
-  for (let y = 0; y < GRID_H; y++) grid.push(new Array(GRID_W).fill(1));
+  for (let y = 0; y < theme.gridH; y++) grid.push(new Array(theme.gridW).fill(1));
   const carve = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) grid[y][x] = 0; };
-  carve(1, CORRIDOR_Y, GRID_W - 2, CORRIDOR_Y);
-  ROOM_RECTS.forEach(r => carve(r.x0, r.y0, r.x1, r.y1));
-  DOOR_X.slice(0, 3).forEach(x => { for (let dx = 0; dx < 3; dx++) grid[CORRIDOR_Y - 1][x + dx] = 0; });
-  DOOR_X.slice(3, 6).forEach(x => { for (let dx = 0; dx < 3; dx++) grid[CORRIDOR_Y + 1][x + dx] = 0; });
+  theme.roomRects.forEach(r => carve(r.x0, r.y0, r.x1, r.y1));
+  theme.corridorRects.forEach(r => carve(r.x0, r.y0, r.x1, r.y1));
   return grid;
 }
 
@@ -107,10 +173,10 @@ function isWallAt(x, y, grid) {
   return grid[cy][cx] === 1;
 }
 
-function roomIndexAt(x, y) {
+function roomIndexAt(x, y, roomRects) {
   const cx = Math.floor(x), cy = Math.floor(y);
-  for (let i = 0; i < ROOM_RECTS.length; i++) {
-    const r = ROOM_RECTS[i];
+  for (let i = 0; i < roomRects.length; i++) {
+    const r = roomRects[i];
     if (cx >= r.x0 && cx <= r.x1 && cy >= r.y0 && cy <= r.y1) return i;
   }
   return null;
@@ -204,11 +270,13 @@ function genCases() {
     const pool = candidates.length ? candidates : roster;
     const yokai = pool[Math.floor(Math.random() * pool.length)];
     usedRanks.add(yokai.rank);
-    const rooms = shuffle(ROOM_POOL).slice(0, 6);
+    const themeKey = THEME_KEYS[Math.floor(Math.random() * THEME_KEYS.length)];
+    const theme = THEMES[themeKey];
     currentCases.push({
       yokai,
-      location: ["山中の廃屋", "旧校舎", "空き家", "神社の裏手", "古い旅館", "峠の茶屋跡"][Math.floor(Math.random() * 6)],
-      rooms,
+      themeKey,
+      location: theme.names[Math.floor(Math.random() * theme.names.length)],
+      rooms: theme.roomNames.slice(),
     });
   }
   renderCaseList();
@@ -233,10 +301,13 @@ function renderCaseList() {
   el.innerHTML = "";
   currentCases.forEach((c, i) => {
     const r = rewardBase(c.yokai.rank);
+    const theme = THEMES[c.themeKey];
     const div = document.createElement("div");
     div.className = "card case-card";
+    div.style.borderLeft = `4px solid ${theme.accent}`;
     div.innerHTML = `
       <span class="rank rank-${c.yokai.rank}">RANK ${c.yokai.rank}</span>
+      <span class="theme-tag" style="background:${theme.accent}">${theme.label}</span>
       <div class="loc">${c.location}</div>
       <div class="hint">部屋数: ${c.rooms.length}（一人称視点で探索）</div>
       <div class="reward">推定報酬: 霊符 ${r.currency} / XP ${r.xp}</div>
@@ -267,10 +338,10 @@ const MOUSE_SENS = 0.0028;
 const TOUCH_LOOK_SENS = 0.006;
 const COL_RADIUS = 0.18;
 function fovRadians() { return (save.settings.fovDeg || 66) * Math.PI / 180; }
-const WALL_RGB = { r: 138, g: 92, b: 66 };
 
 function startCase(idx) {
   const c = currentCases[idx];
+  const theme = THEMES[c.themeKey];
   const rankIdx = RANK_INDEX(c.yokai.rank);
 
   const clueRooms = shuffle(c.rooms).slice(0, c.yokai.evi.length);
@@ -286,6 +357,8 @@ function startCase(idx) {
 
   investigation = {
     caseData: c,
+    theme,
+    roomRects: theme.roomRects,
     rankIdx,
     roomEvidence,
     hauntRoom: clueRooms[0],
@@ -300,9 +373,11 @@ function startCase(idx) {
     ended: false,
     pendingEnd: false,
     stunnedUntil: 0,
-    grid: buildMap(),
-    player: { x: DOOR_X[1] + 1.5, y: CORRIDOR_Y + 0.5, angle: 0 },
+    grid: buildMap(theme),
+    player: { x: theme.spawn.x, y: theme.spawn.y, angle: theme.spawn.angle },
   };
+
+  document.getElementById("fpViewport").style.setProperty("--theme-accent", theme.accent);
 
   Object.keys(keys).forEach(k => delete keys[k]);
   mouseYawDelta = 0; touchYawDelta = 0;
@@ -457,19 +532,21 @@ function renderFpFrame() {
   const W = canvas.width, H = canvas.height;
   if (W < 2 || H < 2) return;
 
+  const inv = investigation;
+  const theme = inv.theme;
+
   const ceilGrad = ctx.createLinearGradient(0, 0, 0, H / 2);
-  ceilGrad.addColorStop(0, "#050608");
-  ceilGrad.addColorStop(1, "#161a24");
+  ceilGrad.addColorStop(0, theme.ceil[0]);
+  ceilGrad.addColorStop(1, theme.ceil[1]);
   ctx.fillStyle = ceilGrad;
   ctx.fillRect(0, 0, W, H / 2);
 
   const floorGrad = ctx.createLinearGradient(0, H / 2, 0, H);
-  floorGrad.addColorStop(0, "#1b130e");
-  floorGrad.addColorStop(1, "#0b0806");
+  floorGrad.addColorStop(0, theme.floor[0]);
+  floorGrad.addColorStop(1, theme.floor[1]);
   ctx.fillStyle = floorGrad;
   ctx.fillRect(0, H / 2, W, H / 2);
 
-  const inv = investigation;
   const grid = inv.grid;
   const p = inv.player;
   const fov = fovRadians();
@@ -480,7 +557,7 @@ function renderFpFrame() {
     const corrected = dist * Math.cos(rayAngle - p.angle);
     const wallHeight = Math.min(H * 1.5, H / Math.max(corrected, 0.0001));
     const shade = Math.max(0.12, 1 - corrected / 13) * (side === 1 ? 0.72 : 1);
-    ctx.fillStyle = shadeColor(WALL_RGB, shade);
+    ctx.fillStyle = shadeColor(theme.wallRGB, shade);
     ctx.fillRect(i, (H - wallHeight) / 2, 1, wallHeight);
   }
 }
@@ -490,7 +567,7 @@ function updateRoomPrompt() {
   if (!el) return;
   const inv = investigation;
   if (!inv || inv.ended) { el.classList.add("hidden"); return; }
-  const idx = roomIndexAt(inv.player.x, inv.player.y);
+  const idx = roomIndexAt(inv.player.x, inv.player.y, inv.roomRects);
   if (idx === null) { el.classList.add("hidden"); return; }
   const room = inv.caseData.rooms[idx];
   el.classList.remove("hidden");
@@ -507,7 +584,7 @@ function tryInteract() {
   const inv = investigation;
   if (!inv || inv.ended) return;
   if (inv.stunnedUntil && performance.now() < inv.stunnedUntil) return;
-  const idx = roomIndexAt(inv.player.x, inv.player.y);
+  const idx = roomIndexAt(inv.player.x, inv.player.y, inv.roomRects);
   if (idx === null) { logEvent("ここは廊下だ。部屋の中で調べよう。", ""); return; }
   const room = inv.caseData.rooms[idx];
   if (inv.searchedRooms.has(room)) { logEvent(`「${room}」はすでに調べた。`, ""); return; }
