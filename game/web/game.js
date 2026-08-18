@@ -134,7 +134,7 @@ function defaultSave() {
     seasonPass: false,
     skins: ["護符・標準"],
     settings: {
-      controlSide: "right",
+      controlSide: "left",
       mouseSens: 1.0,
       touchSens: 1.0,
       fovDeg: 66,
