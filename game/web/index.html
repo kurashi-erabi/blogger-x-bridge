@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>怪異捜査ファイル（プロトタイプ）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="brand">怪異捜査ファイル<span class="proto-tag">PROTOTYPE</span></div>
+    <div id="playerStats" class="player-stats"></div>
+  </header>
+
+  <nav id="navbar">
+    <button data-nav="caseselect" class="nav-btn active">依頼</button>
+    <button data-nav="shop" class="nav-btn">道具屋</button>
+    <button data-nav="zukan" class="nav-btn">妖怪図鑑</button>
+    <button data-nav="store" class="nav-btn">ストア（課金）</button>
+  </nav>
+
+  <main id="screens">
+
+    <section id="screen-caseselect" class="screen active">
+      <h2>依頼を選ぶ</h2>
+      <p class="hint">依頼ランクが高いほど報酬は大きいが、怪異の脅かしも激しくなる。</p>
+      <div id="caseList" class="case-list"></div>
+      <button id="rerollCases" class="secondary-btn">依頼を更新する</button>
+    </section>
+
+    <section id="screen-investigation" class="screen">
+      <div id="invHud">
+        <div class="hud-row">
+          <div class="hud-block">
+            <div class="hud-label">残り時間</div>
+            <div class="bar"><div id="timeBar" class="bar-fill time"></div></div>
+          </div>
+          <div class="hud-block">
+            <div class="hud-label">サニティ</div>
+            <div class="bar"><div id="sanityBar" class="bar-fill sanity"></div></div>
+          </div>
+        </div>
+        <div id="eventLog" class="event-log"></div>
+      </div>
+
+      <div id="invBody">
+        <div class="panel">
+          <h3>現場（部屋を選び、道具で調べる）</h3>
+          <div id="roomGrid" class="room-grid"></div>
+        </div>
+
+        <div class="panel">
+          <h3>所持道具</h3>
+          <div id="toolBelt" class="tool-belt"></div>
+
+          <h3>調査ジャーナル（発見した証拠）</h3>
+          <ul id="journalList" class="journal-list"></ul>
+
+          <div class="inv-actions">
+            <button id="btnIdentify" class="primary-btn">正体を特定する</button>
+            <button id="btnRetreat" class="secondary-btn">撤退する</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-identify" class="screen">
+      <h2>正体を特定する</h2>
+      <p class="hint">ジャーナルの証拠と一致する妖怪を選んでください。</p>
+      <div id="identifyList" class="identify-list"></div>
+      <button id="btnCancelIdentify" class="secondary-btn">戻る</button>
+    </section>
+
+    <section id="screen-result" class="screen">
+      <h2 id="resultTitle"></h2>
+      <div id="resultBody" class="result-body"></div>
+      <button id="btnResultNext" class="primary-btn">依頼一覧に戻る</button>
+    </section>
+
+    <section id="screen-shop" class="screen">
+      <h2>道具屋</h2>
+      <p class="hint">霊符ポイントで道具の購入・強化、消耗品の購入ができる。</p>
+      <div id="shopTools" class="shop-grid"></div>
+      <h3>消耗品</h3>
+      <div id="shopConsumables" class="shop-grid"></div>
+    </section>
+
+    <section id="screen-zukan" class="screen">
+      <h2>妖怪図鑑</h2>
+      <p class="hint">レベルアップで出現する妖怪が増える。正体特定に成功すると詳細が解放される。</p>
+      <div id="zukanGrid" class="zukan-grid"></div>
+    </section>
+
+    <section id="screen-store" class="screen">
+      <h2>ストア（課金・デモ）</h2>
+      <p class="notice">※このプロトタイプでは実際の決済は発生しません。すべてデモ用の即時付与です。</p>
+
+      <div class="store-section">
+        <h3>リワード広告（デモ）</h3>
+        <p class="hint">広告視聴の代わりに、ボタンを押すとその場でボーナスが付与されます。</p>
+        <button id="btnWatchAd" class="primary-btn">広告を見て霊符+50を受け取る</button>
+      </div>
+
+      <div class="store-section">
+        <h3>広告除去（買い切りIAP・デモ）</h3>
+        <button id="btnRemoveAds" class="primary-btn">広告を非表示にする（デモ購入）</button>
+        <span id="adsStatus" class="hint"></span>
+      </div>
+
+      <div class="store-section">
+        <h3>シーズンパス（デモ）</h3>
+        <p class="hint">加入中は依頼報酬の霊符ポイントが1.3倍になる想定。</p>
+        <button id="btnSeasonPass" class="primary-btn">シーズンパスに加入する（デモ購入）</button>
+        <span id="passStatus" class="hint"></span>
+      </div>
+
+      <div class="store-section">
+        <h3>勾玉ジェム購入（デモ）</h3>
+        <button class="secondary-btn buy-gems" data-gems="50">50ジェム（デモ）</button>
+        <button class="secondary-btn buy-gems" data-gems="120">120ジェム（デモ）</button>
+      </div>
+
+      <div class="store-section">
+        <h3>護符スキンガチャ（コスメのみ・見た目のみ・デモ）</h3>
+        <p class="hint">効果に差はありません。1回 30ジェム。</p>
+        <button id="btnGacha" class="primary-btn">ガチャを引く（30ジェム）</button>
+        <div id="gachaResult" class="gacha-result"></div>
+        <h4>所持スキン</h4>
+        <div id="skinList" class="skin-list"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+<script src="game.js"></script>
+</body>
+</html>
