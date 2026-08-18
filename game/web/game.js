@@ -29,6 +29,17 @@ const CONSUMABLES = {
   timeAmulet: { name: "延命の御札", desc: "調査の制限時間を+20秒（次の調査1回）", price: 60 },
 };
 
+const TOOL_ICONS = {
+  thermometer: "🌡️",
+  emf: "📟",
+  mic: "🎙️",
+  camera: "📷",
+  recorder: "📼",
+  salt: "🧂",
+  mirror: "🪞",
+  ofuda: "📜",
+};
+
 const RANKS = ["E", "D", "C", "B", "A", "SS"];
 
 const ROSTER = [
@@ -122,6 +133,13 @@ function defaultSave() {
     adsRemoved: false,
     seasonPass: false,
     skins: ["護符・標準"],
+    settings: {
+      controlSide: "right",
+      mouseSens: 1.0,
+      touchSens: 1.0,
+      fovDeg: 66,
+      attackEffects: true,
+    },
   };
 }
 
@@ -164,6 +182,7 @@ navBtns.forEach(b => b.addEventListener("click", () => {
   if (b.dataset.nav === "shop") renderShop();
   if (b.dataset.nav === "zukan") renderZukan();
   if (b.dataset.nav === "store") renderStore();
+  if (b.dataset.nav === "settings") renderSettings();
 }));
 
 function renderPlayerStats() {
@@ -245,8 +264,8 @@ const MOVE_SPEED = 2.6;
 const TURN_SPEED = 2.4;
 const MOUSE_SENS = 0.0028;
 const TOUCH_LOOK_SENS = 0.006;
-const FOV = 1.15;
 const COL_RADIUS = 0.18;
+function fovRadians() { return (save.settings.fovDeg || 66) * Math.PI / 180; }
 const WALL_RGB = { r: 138, g: 92, b: 66 };
 
 function startCase(idx) {
@@ -290,6 +309,7 @@ function startCase(idx) {
   resetJoystick();
 
   showScreen("investigation");
+  applyControlSide();
   renderToolbar();
   updateJournalPanel();
   logEvent(`${c.location}に到着した。調査を開始する。`, "");
@@ -302,6 +322,12 @@ function startCase(idx) {
 
 function gameLoop(ts) {
   if (!investigation || investigation.ended) { animId = null; return; }
+  const screenActive = document.getElementById("screen-investigation").classList.contains("active");
+  if (!screenActive) {
+    lastFrameTime = 0;
+    animId = requestAnimationFrame(gameLoop);
+    return;
+  }
   const dt = lastFrameTime ? Math.min(0.05, (ts - lastFrameTime) / 1000) : 0;
   lastFrameTime = ts;
   updatePlayer(dt);
@@ -444,9 +470,10 @@ function renderFpFrame() {
   const inv = investigation;
   const grid = inv.grid;
   const p = inv.player;
+  const fov = fovRadians();
   const numRays = W;
   for (let i = 0; i < numRays; i++) {
-    const rayAngle = p.angle - FOV / 2 + (i / numRays) * FOV;
+    const rayAngle = p.angle - fov / 2 + (i / numRays) * fov;
     const { dist, side } = castRay(p.x, p.y, rayAngle, grid);
     const corrected = dist * Math.cos(rayAngle - p.angle);
     const wallHeight = Math.min(H * 1.5, H / Math.max(corrected, 0.0001));
@@ -497,17 +524,18 @@ window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 
 function renderToolbar() {
   const inv = investigation;
-  const belt = document.getElementById("toolBelt");
+  const belt = document.getElementById("fpHotbar");
   belt.innerHTML = "";
   save.ownedTools.forEach(toolId => {
-    const chip = document.createElement("div");
-    chip.className = "tool-chip" + (inv.selectedTool === toolId ? " selected" : "");
-    chip.textContent = TOOLS[toolId].name;
-    chip.addEventListener("click", () => {
+    const btn = document.createElement("button");
+    btn.className = "fp-tool-btn" + (inv.selectedTool === toolId ? " selected" : "");
+    btn.textContent = TOOL_ICONS[toolId] || "🔧";
+    btn.title = TOOLS[toolId].name;
+    btn.addEventListener("click", () => {
       inv.selectedTool = (inv.selectedTool === toolId) ? null : toolId;
       renderToolbar();
     });
-    belt.appendChild(chip);
+    belt.appendChild(btn);
   });
 }
 
@@ -589,6 +617,7 @@ function triggerAttack() {
 }
 
 function playAttackEffect(name) {
+  if (!save.settings.attackEffects) return;
   const flash = document.getElementById("fpAttackFlash");
   const text = document.getElementById("fpAttackText");
   const viewport = document.getElementById("fpViewport");
@@ -744,8 +773,15 @@ function addXp(amount) {
 const fpViewport = document.getElementById("fpViewport");
 const fpCanvas = document.getElementById("fpCanvas");
 
+function applyControlSide() {
+  const isLeft = save.settings.controlSide === "left";
+  fpViewport.classList.toggle("ctrl-left", isLeft);
+  fpViewport.classList.toggle("ctrl-right", !isLeft);
+}
+
 fpViewport.addEventListener("pointerdown", e => {
   if (!investigation || investigation.ended) return;
+  if (e.target.closest(".fp-action-cluster, .fp-hotbar, .fp-prompt")) return;
   if (e.pointerType === "mouse") {
     if (fpCanvas.requestPointerLock) {
       const p = fpCanvas.requestPointerLock();
@@ -755,13 +791,16 @@ fpViewport.addEventListener("pointerdown", e => {
   }
   const rect = fpViewport.getBoundingClientRect();
   const localX = e.clientX - rect.left;
-  if (localX < rect.width / 2) {
+  const isRightHalf = localX >= rect.width / 2;
+  const moveIsHere = save.settings.controlSide === "left" ? !isRightHalf : isRightHalf;
+  if (moveIsHere) {
+    const anchor = document.getElementById("fpJoystickBase").getBoundingClientRect();
     touchMove.pointerId = e.pointerId;
-    touchMove.originX = e.clientX;
-    touchMove.originY = e.clientY;
+    touchMove.originX = anchor.left + anchor.width / 2;
+    touchMove.originY = anchor.top + anchor.height / 2;
     touchMove.active = true;
     touchMove.x = 0; touchMove.y = 0;
-    positionJoystick(e.clientX - rect.left, e.clientY - rect.top);
+    document.getElementById("fpJoystickBase").classList.remove("hidden");
   } else {
     touchLook.pointerId = e.pointerId;
     touchLook.lastX = e.clientX;
@@ -781,7 +820,7 @@ fpViewport.addEventListener("pointermove", e => {
     updateJoystickKnob((dx / len) * clamped, (dy / len) * clamped);
   } else if (touchLook.active && e.pointerId === touchLook.pointerId) {
     const dx = e.clientX - touchLook.lastX;
-    touchYawDelta += dx * TOUCH_LOOK_SENS;
+    touchYawDelta += dx * TOUCH_LOOK_SENS * save.settings.touchSens;
     touchLook.lastX = e.clientX;
     touchLook.lastY = e.clientY;
   }
@@ -796,16 +835,10 @@ fpViewport.addEventListener("pointercancel", endTouch);
 
 document.addEventListener("mousemove", e => {
   if (document.pointerLockElement === fpCanvas) {
-    mouseYawDelta += e.movementX * MOUSE_SENS;
+    mouseYawDelta += e.movementX * MOUSE_SENS * save.settings.mouseSens;
   }
 });
 
-function positionJoystick(localX, localY) {
-  const base = document.getElementById("fpJoystickBase");
-  base.style.left = `${localX}px`;
-  base.style.top = `${localY}px`;
-  base.classList.remove("hidden");
-}
 function updateJoystickKnob(dx, dy) {
   document.getElementById("fpJoystickKnob").style.transform = `translate(${dx}px, ${dy}px)`;
 }
@@ -956,6 +989,65 @@ document.getElementById("btnGacha").addEventListener("click", () => {
     : `「${pull}」を獲得！（コスメティックのみ、効果に差はありません）`;
   if (dup) { save.currency += 20; persist(); }
   renderStore();
+});
+
+/* ============ 設定 ============ */
+
+function renderSettings() {
+  const cs = save.settings;
+  document.querySelectorAll("#settingControlSide .seg-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.value === cs.controlSide);
+  });
+  document.getElementById("settingMouseSens").value = cs.mouseSens;
+  document.getElementById("settingMouseSensVal").textContent = `${cs.mouseSens.toFixed(1)}x`;
+  document.getElementById("settingTouchSens").value = cs.touchSens;
+  document.getElementById("settingTouchSensVal").textContent = `${cs.touchSens.toFixed(1)}x`;
+  document.getElementById("settingFov").value = cs.fovDeg;
+  document.getElementById("settingFovVal").textContent = `${cs.fovDeg}°`;
+  const effBtn = document.getElementById("settingAttackEffects");
+  effBtn.textContent = cs.attackEffects ? "有効" : "無効";
+  effBtn.classList.toggle("on", cs.attackEffects);
+}
+
+document.querySelectorAll("#settingControlSide .seg-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    save.settings.controlSide = btn.dataset.value;
+    persist();
+    applyControlSide();
+    renderSettings();
+  });
+});
+
+document.getElementById("settingMouseSens").addEventListener("input", e => {
+  save.settings.mouseSens = Number(e.target.value);
+  persist();
+  document.getElementById("settingMouseSensVal").textContent = `${save.settings.mouseSens.toFixed(1)}x`;
+});
+document.getElementById("settingTouchSens").addEventListener("input", e => {
+  save.settings.touchSens = Number(e.target.value);
+  persist();
+  document.getElementById("settingTouchSensVal").textContent = `${save.settings.touchSens.toFixed(1)}x`;
+});
+document.getElementById("settingFov").addEventListener("input", e => {
+  save.settings.fovDeg = Number(e.target.value);
+  persist();
+  document.getElementById("settingFovVal").textContent = `${save.settings.fovDeg}°`;
+});
+document.getElementById("settingAttackEffects").addEventListener("click", () => {
+  save.settings.attackEffects = !save.settings.attackEffects;
+  persist();
+  renderSettings();
+});
+document.getElementById("btnResetSave").addEventListener("click", () => {
+  if (!confirm("セーブデータをリセットします。よろしいですか？")) return;
+  localStorage.removeItem(SAVE_KEY);
+  save = defaultSave();
+  persist();
+  renderPlayerStats();
+  renderSettings();
+  applyControlSide();
+  showScreen("caseselect");
+  genCases();
 });
 
 /* ============ 初期化 ============ */

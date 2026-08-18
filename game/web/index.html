@@ -19,6 +19,7 @@
     <button data-nav="shop" class="nav-btn">道具屋</button>
     <button data-nav="zukan" class="nav-btn">妖怪図鑑</button>
     <button data-nav="store" class="nav-btn">ストア（課金）</button>
+    <button data-nav="settings" class="nav-btn">設定</button>
   </nav>
 
   <main id="screens">
@@ -54,18 +55,17 @@
           </div>
           <div id="eventLog" class="event-log"></div>
         </div>
-      </div>
 
-      <p class="hint fp-help">PC: マウスで視点操作（画面クリックでロック）・WASDで移動・Eで調べる／スマホ: 左半分をドラッグで移動・右半分をドラッグで視点操作</p>
-
-      <div id="fpToolbar">
-        <div id="toolBelt" class="tool-belt"></div>
-        <div class="inv-actions">
-          <button id="btnJournalToggle" class="secondary-btn">ジャーナル</button>
-          <button id="btnIdentify" class="primary-btn">正体を特定する</button>
-          <button id="btnRetreat" class="secondary-btn">撤退する</button>
+        <div id="fpActionCluster" class="fp-action-cluster">
+          <button id="btnJournalToggle" class="fp-action-btn" title="ジャーナル">📓</button>
+          <button id="btnIdentify" class="fp-action-btn fp-action-btn-primary" title="正体を特定する" disabled>🔍</button>
+          <button id="btnRetreat" class="fp-action-btn" title="撤退する">🚪</button>
         </div>
+
+        <div id="fpHotbar" class="fp-hotbar"></div>
       </div>
+
+      <p class="hint fp-help">PC: マウスで視点操作（画面クリックでロック）・WASDで移動・Eで調べる／スマホ: 操作の配置は設定で変更できます（初期設定は移動が右側）</p>
 
       <div id="fpJournalPanel" class="overlay-panel hidden">
         <h3>調査ジャーナル（発見した証拠）</h3>
@@ -137,6 +137,52 @@
         <div id="gachaResult" class="gacha-result"></div>
         <h4>所持スキン</h4>
         <div id="skinList" class="skin-list"></div>
+      </div>
+    </section>
+
+    <section id="screen-settings" class="screen">
+      <h2>設定</h2>
+
+      <h3>操作</h3>
+      <div class="settings-group">
+        <div class="setting-row">
+          <span class="setting-label">移動スティックの位置</span>
+          <div id="settingControlSide" class="segmented">
+            <button class="seg-btn" data-value="right">右側</button>
+            <button class="seg-btn" data-value="left">左側</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">マウス視点感度</span>
+          <input id="settingMouseSens" class="setting-slider" type="range" min="0.5" max="2" step="0.1">
+          <span id="settingMouseSensVal" class="setting-val"></span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">タッチ視点感度</span>
+          <input id="settingTouchSens" class="setting-slider" type="range" min="0.5" max="2" step="0.1">
+          <span id="settingTouchSensVal" class="setting-val"></span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">視野角（FOV）</span>
+          <input id="settingFov" class="setting-slider" type="range" min="60" max="90" step="1">
+          <span id="settingFovVal" class="setting-val"></span>
+        </div>
+      </div>
+
+      <h3>演出</h3>
+      <div class="settings-group">
+        <div class="setting-row">
+          <span class="setting-label">襲撃時の画面演出（フラッシュ・揺れ）</span>
+          <button id="settingAttackEffects" class="toggle-btn"></button>
+        </div>
+      </div>
+
+      <h3>データ</h3>
+      <div class="settings-group">
+        <div class="setting-row">
+          <span class="setting-label">セーブデータをリセットする</span>
+          <button id="btnResetSave" class="secondary-btn danger-btn">リセット</button>
+        </div>
       </div>
     </section>
 
