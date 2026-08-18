@@ -49,7 +49,7 @@ const ROSTER = [
   { id: "shuten",   name: "酒呑童子",   rank: "SS", evi: ["temp", "evp", "ofuda"],         flavor: "伝説級の怪異。最も脅かしが激しく、報酬も最大。" },
 ];
 
-const ROOM_POOL = ["客間", "廊下", "台所", "浴室", "庭", "蔵", "二階の寝室", "神棚の間", "地下室", "図書室", "縁側", "納戸"];
+const ROOM_POOL = ["客間", "廊下の突き当り", "台所", "浴室", "離れの庭", "蔵", "二階の寝室", "神棚の間", "地下室", "図書室", "縁側", "納戸"];
 
 const RANK_INDEX = (r) => RANKS.indexOf(r);
 
@@ -61,6 +61,49 @@ const SCARE_LINES = [
   "灯りが一瞬だけ揺れた。",
   "背後に気配を感じ、思わず振り返った。",
 ];
+
+/* ============ 一人称マップ定義（レイキャスティング用グリッド） ============ */
+/*
+  中央の廊下を軸に6部屋（上段3・下段3）を配置した固定間取り。
+  1マス=1グリッド単位。0=床、1=壁。各部屋は廊下との間に扉（1マスの隙間）を持つ。
+*/
+const GRID_W = 21, GRID_H = 15;
+const CORRIDOR_Y = 7;
+const ROOM_RECTS = [
+  { x0: 1,  y0: 1, x1: 6,  y1: 5 },
+  { x0: 8,  y0: 1, x1: 12, y1: 5 },
+  { x0: 14, y0: 1, x1: 19, y1: 5 },
+  { x0: 1,  y0: 9, x1: 6,  y1: 13 },
+  { x0: 8,  y0: 9, x1: 12, y1: 13 },
+  { x0: 14, y0: 9, x1: 19, y1: 13 },
+];
+const DOOR_X = [3, 10, 16, 3, 10, 16]; // left edge of each 2-cell-wide doorway
+
+function buildMap() {
+  const grid = [];
+  for (let y = 0; y < GRID_H; y++) grid.push(new Array(GRID_W).fill(1));
+  const carve = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) grid[y][x] = 0; };
+  carve(1, CORRIDOR_Y, GRID_W - 2, CORRIDOR_Y);
+  ROOM_RECTS.forEach(r => carve(r.x0, r.y0, r.x1, r.y1));
+  DOOR_X.slice(0, 3).forEach(x => { for (let dx = 0; dx < 3; dx++) grid[CORRIDOR_Y - 1][x + dx] = 0; });
+  DOOR_X.slice(3, 6).forEach(x => { for (let dx = 0; dx < 3; dx++) grid[CORRIDOR_Y + 1][x + dx] = 0; });
+  return grid;
+}
+
+function isWallAt(x, y, grid) {
+  const cx = Math.floor(x), cy = Math.floor(y);
+  if (cy < 0 || cy >= grid.length || cx < 0 || cx >= grid[0].length) return true;
+  return grid[cy][cx] === 1;
+}
+
+function roomIndexAt(x, y) {
+  const cx = Math.floor(x), cy = Math.floor(y);
+  for (let i = 0; i < ROOM_RECTS.length; i++) {
+    const r = ROOM_RECTS[i];
+    if (cx >= r.x0 && cx <= r.x1 && cy >= r.y0 && cy <= r.y1) return i;
+  }
+  return null;
+}
 
 /* ============ セーブデータ ============ */
 
@@ -99,7 +142,6 @@ function persist() {
 }
 
 function unlockedYokaiCount() {
-  // Lv1 -> 3体、以降レベル毎に+1体（最大ロースター数まで）
   return Math.min(ROSTER.length, 2 + save.level);
 }
 
@@ -176,7 +218,7 @@ function renderCaseList() {
     div.innerHTML = `
       <span class="rank rank-${c.yokai.rank}">RANK ${c.yokai.rank}</span>
       <div class="loc">${c.location}</div>
-      <div class="hint">部屋数: ${c.rooms.length}</div>
+      <div class="hint">部屋数: ${c.rooms.length}（一人称視点で探索）</div>
       <div class="reward">推定報酬: 霊符 ${r.currency} / XP ${r.xp}</div>
       <button class="primary-btn">調査を開始する</button>
     `;
@@ -187,9 +229,25 @@ function renderCaseList() {
 
 document.getElementById("rerollCases").addEventListener("click", genCases);
 
-/* ============ 調査フェーズ ============ */
+/* ============ 調査フェーズ（一人称視点） ============ */
 
 let investigation = null;
+let animId = null;
+let lastFrameTime = 0;
+
+const keys = {};
+let mouseYawDelta = 0;
+let touchYawDelta = 0;
+const touchMove = { active: false, pointerId: null, originX: 0, originY: 0, x: 0, y: 0 };
+const touchLook = { active: false, pointerId: null, lastX: 0, lastY: 0 };
+
+const MOVE_SPEED = 2.6;
+const TURN_SPEED = 2.4;
+const MOUSE_SENS = 0.0028;
+const TOUCH_LOOK_SENS = 0.006;
+const FOV = 1.15;
+const COL_RADIUS = 0.18;
+const WALL_RGB = { r: 138, g: 92, b: 66 };
 
 function startCase(idx) {
   const c = currentCases[idx];
@@ -200,7 +258,7 @@ function startCase(idx) {
   clueRooms.forEach((room, i) => { roomEvidence[room] = c.yokai.evi[i]; });
 
   let timeLimit = 130 - rankIdx * 8;
-  let sanityMax = 100;
+  const sanityMax = 100;
   if (save.consumables.timeAmulet > 0) { timeLimit += 20; save.consumables.timeAmulet--; }
   const charmActive = save.consumables.charm > 0;
   if (charmActive) save.consumables.charm--;
@@ -218,35 +276,97 @@ function startCase(idx) {
     sanity: sanityMax,
     sanityMax,
     charmActive,
-    timer: null,
     ended: false,
+    grid: buildMap(),
+    player: { x: DOOR_X[1] + 1.5, y: CORRIDOR_Y + 0.5, angle: 0 },
   };
 
+  Object.keys(keys).forEach(k => delete keys[k]);
+  mouseYawDelta = 0; touchYawDelta = 0;
+  touchMove.active = false; touchLook.active = false;
+  resetJoystick();
+
   showScreen("investigation");
-  renderInvestigation();
+  renderToolbar();
+  updateJournalPanel();
   logEvent(`${c.location}に到着した。調査を開始する。`, "");
 
-  investigation.timer = setInterval(tickTime, 1000);
+  requestAnimationFrame(() => { resizeFpCanvas(); });
+  lastFrameTime = 0;
+  if (animId) cancelAnimationFrame(animId);
+  animId = requestAnimationFrame(gameLoop);
 }
 
-function tickTime() {
-  if (!investigation || investigation.ended) return;
-  investigation.time -= 1;
-  investigation.sanity -= 0.15;
-  if (investigation.time <= 0 || investigation.sanity <= 0) {
-    investigation.time = Math.max(0, investigation.time);
-    investigation.sanity = Math.max(0, investigation.sanity);
-    updateHud();
-    endCase(false, "time");
-    return;
+function gameLoop(ts) {
+  if (!investigation || investigation.ended) { animId = null; return; }
+  const dt = lastFrameTime ? Math.min(0.05, (ts - lastFrameTime) / 1000) : 0;
+  lastFrameTime = ts;
+  updatePlayer(dt);
+  updateTimers(dt);
+  renderFpFrame();
+  updateRoomPrompt();
+  animId = requestAnimationFrame(gameLoop);
+}
+
+function updatePlayer(dt) {
+  const inv = investigation;
+  let turn = 0;
+  if (keys["arrowleft"]) turn -= TURN_SPEED * dt;
+  if (keys["arrowright"]) turn += TURN_SPEED * dt;
+  turn += mouseYawDelta + touchYawDelta;
+  mouseYawDelta = 0; touchYawDelta = 0;
+  inv.player.angle += turn;
+
+  const fwd = { x: Math.cos(inv.player.angle), y: Math.sin(inv.player.angle) };
+  const right = { x: Math.cos(inv.player.angle + Math.PI / 2), y: Math.sin(inv.player.angle + Math.PI / 2) };
+  let fAxis = 0, rAxis = 0;
+  if (keys["w"]) fAxis += 1;
+  if (keys["s"]) fAxis -= 1;
+  if (keys["d"]) rAxis += 1;
+  if (keys["a"]) rAxis -= 1;
+  if (touchMove.active) { fAxis += -touchMove.y; rAxis += touchMove.x; }
+  const len = Math.hypot(fAxis, rAxis);
+  if (len > 1) { fAxis /= len; rAxis /= len; }
+
+  const dx = (fwd.x * fAxis + right.x * rAxis) * MOVE_SPEED * dt;
+  const dy = (fwd.y * fAxis + right.y * rAxis) * MOVE_SPEED * dt;
+  tryMove(dx, dy);
+}
+
+function tryMove(dx, dy) {
+  const inv = investigation;
+  const grid = inv.grid;
+  const p = inv.player;
+  const r = COL_RADIUS;
+  if (dx !== 0) {
+    const sx = Math.sign(dx);
+    const nx = p.x + dx;
+    if (!isWallAt(nx + sx * r, p.y - r, grid) && !isWallAt(nx + sx * r, p.y + r, grid)) p.x = nx;
   }
+  if (dy !== 0) {
+    const sy = Math.sign(dy);
+    const ny = p.y + dy;
+    if (!isWallAt(p.x - r, ny + sy * r, grid) && !isWallAt(p.x + r, ny + sy * r, grid)) p.y = ny;
+  }
+}
+
+function updateTimers(dt) {
+  const inv = investigation;
+  inv.time -= dt;
+  inv.sanity -= dt * 0.18;
   updateHud();
+  if (inv.time <= 0 || inv.sanity <= 0) {
+    inv.time = Math.max(0, inv.time);
+    inv.sanity = Math.max(0, inv.sanity);
+    updateHud();
+    endCase(false, inv.time <= 0 ? "time" : "sanity");
+  }
 }
 
 function updateHud() {
   const inv = investigation;
-  document.getElementById("timeBar").style.width = `${(inv.time / inv.timeMax) * 100}%`;
-  document.getElementById("sanityBar").style.width = `${(inv.sanity / inv.sanityMax) * 100}%`;
+  document.getElementById("timeBar").style.width = `${Math.max(0, (inv.time / inv.timeMax) * 100)}%`;
+  document.getElementById("sanityBar").style.width = `${Math.max(0, (inv.sanity / inv.sanityMax) * 100)}%`;
 }
 
 function logEvent(text, cls) {
@@ -255,21 +375,122 @@ function logEvent(text, cls) {
   el.className = "event-log" + (cls ? " " + cls : "");
 }
 
-function renderInvestigation() {
+function shadeColor(rgb, factor) {
+  const r = Math.max(0, Math.min(255, rgb.r * factor)) | 0;
+  const g = Math.max(0, Math.min(255, rgb.g * factor)) | 0;
+  const b = Math.max(0, Math.min(255, rgb.b * factor)) | 0;
+  return `rgb(${r},${g},${b})`;
+}
+
+function castRay(px, py, angle, grid) {
+  const dx = Math.cos(angle), dy = Math.sin(angle);
+  let mapX = Math.floor(px), mapY = Math.floor(py);
+  const deltaDistX = Math.abs(1 / dx), deltaDistY = Math.abs(1 / dy);
+  let stepX, stepY, sideDistX, sideDistY;
+  if (dx < 0) { stepX = -1; sideDistX = (px - mapX) * deltaDistX; }
+  else { stepX = 1; sideDistX = (mapX + 1 - px) * deltaDistX; }
+  if (dy < 0) { stepY = -1; sideDistY = (py - mapY) * deltaDistY; }
+  else { stepY = 1; sideDistY = (mapY + 1 - py) * deltaDistY; }
+  let side = 0;
+  let hit = false;
+  for (let i = 0; i < 64; i++) {
+    if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; }
+    else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
+    if (mapY < 0 || mapY >= grid.length || mapX < 0 || mapX >= grid[0].length) { hit = true; break; }
+    if (grid[mapY][mapX] === 1) { hit = true; break; }
+  }
+  if (!hit) return { dist: 20, side };
+  const perpDist = side === 0
+    ? (mapX - px + (1 - stepX) / 2) / dx
+    : (mapY - py + (1 - stepY) / 2) / dy;
+  return { dist: Math.max(perpDist, 0.0001), side };
+}
+
+function resizeFpCanvas() {
+  const canvas = document.getElementById("fpCanvas");
+  if (!canvas || !canvas.isConnected) return;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+}
+window.addEventListener("resize", () => { if (investigation && !investigation.ended) resizeFpCanvas(); });
+
+function renderFpFrame() {
+  const canvas = document.getElementById("fpCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  if (W < 2 || H < 2) return;
+
+  const ceilGrad = ctx.createLinearGradient(0, 0, 0, H / 2);
+  ceilGrad.addColorStop(0, "#050608");
+  ceilGrad.addColorStop(1, "#161a24");
+  ctx.fillStyle = ceilGrad;
+  ctx.fillRect(0, 0, W, H / 2);
+
+  const floorGrad = ctx.createLinearGradient(0, H / 2, 0, H);
+  floorGrad.addColorStop(0, "#1b130e");
+  floorGrad.addColorStop(1, "#0b0806");
+  ctx.fillStyle = floorGrad;
+  ctx.fillRect(0, H / 2, W, H / 2);
+
   const inv = investigation;
-  updateHud();
+  const grid = inv.grid;
+  const p = inv.player;
+  const numRays = W;
+  for (let i = 0; i < numRays; i++) {
+    const rayAngle = p.angle - FOV / 2 + (i / numRays) * FOV;
+    const { dist, side } = castRay(p.x, p.y, rayAngle, grid);
+    const corrected = dist * Math.cos(rayAngle - p.angle);
+    const wallHeight = Math.min(H * 1.5, H / Math.max(corrected, 0.0001));
+    const shade = Math.max(0.12, 1 - corrected / 13) * (side === 1 ? 0.72 : 1);
+    ctx.fillStyle = shadeColor(WALL_RGB, shade);
+    ctx.fillRect(i, (H - wallHeight) / 2, 1, wallHeight);
+  }
+}
 
-  const roomGrid = document.getElementById("roomGrid");
-  roomGrid.innerHTML = "";
-  inv.caseData.rooms.forEach(room => {
-    const div = document.createElement("div");
-    const searched = inv.searchedRooms.has(room);
-    div.className = "room-tile" + (searched ? " searched" : "");
-    div.textContent = room;
-    div.addEventListener("click", () => searchRoom(room));
-    roomGrid.appendChild(div);
-  });
+function updateRoomPrompt() {
+  const el = document.getElementById("fpRoomPrompt");
+  if (!el) return;
+  const inv = investigation;
+  if (!inv || inv.ended) { el.classList.add("hidden"); return; }
+  const idx = roomIndexAt(inv.player.x, inv.player.y);
+  if (idx === null) { el.classList.add("hidden"); return; }
+  const room = inv.caseData.rooms[idx];
+  el.classList.remove("hidden");
+  if (inv.searchedRooms.has(room)) {
+    el.textContent = `${room}（調査済み）`;
+    el.classList.add("done");
+  } else {
+    el.textContent = `『${room}』を調べる（Eキー / タップ）`;
+    el.classList.remove("done");
+  }
+}
 
+function tryInteract() {
+  const inv = investigation;
+  if (!inv || inv.ended) return;
+  const idx = roomIndexAt(inv.player.x, inv.player.y);
+  if (idx === null) { logEvent("ここは廊下だ。部屋の中で調べよう。", ""); return; }
+  const room = inv.caseData.rooms[idx];
+  if (inv.searchedRooms.has(room)) { logEvent(`「${room}」はすでに調べた。`, ""); return; }
+  if (!inv.selectedTool) { logEvent("道具を選んでから調べてください。", ""); return; }
+  searchRoom(room);
+}
+
+document.getElementById("fpRoomPrompt").addEventListener("click", tryInteract);
+
+window.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === "e") tryInteract();
+});
+window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
+
+function renderToolbar() {
+  const inv = investigation;
   const belt = document.getElementById("toolBelt");
   belt.innerHTML = "";
   save.ownedTools.forEach(toolId => {
@@ -278,11 +499,14 @@ function renderInvestigation() {
     chip.textContent = TOOLS[toolId].name;
     chip.addEventListener("click", () => {
       inv.selectedTool = (inv.selectedTool === toolId) ? null : toolId;
-      renderInvestigation();
+      renderToolbar();
     });
     belt.appendChild(chip);
   });
+}
 
+function updateJournalPanel() {
+  const inv = investigation;
   const journal = document.getElementById("journalList");
   journal.innerHTML = "";
   Object.entries(EVIDENCE).forEach(([key, evi]) => {
@@ -292,18 +516,11 @@ function renderInvestigation() {
     li.textContent = (found ? "✓ " : "・") + evi.name;
     journal.appendChild(li);
   });
-
   document.getElementById("btnIdentify").disabled = inv.foundEvidence.size === 0;
 }
 
 function searchRoom(room) {
   const inv = investigation;
-  if (inv.ended || inv.searchedRooms.has(room)) return;
-  if (!inv.selectedTool) {
-    logEvent("道具を選んでから部屋を調べてください。", "");
-    return;
-  }
-
   inv.searchedRooms.add(room);
   inv.time -= 9;
   inv.sanity -= (6 + inv.rankIdx) * (inv.charmActive ? 0.6 : 1);
@@ -312,7 +529,6 @@ function searchRoom(room) {
   if (evidenceKey && EVIDENCE[evidenceKey].tool === inv.selectedTool && !inv.foundEvidence.has(evidenceKey)) {
     inv.foundEvidence.add(evidenceKey);
     logEvent(`「${room}」で${EVIDENCE[evidenceKey].name}を検出した！`, "result-good");
-    document.querySelectorAll(".room-tile").forEach(t => { if (t.textContent === room) t.classList.add("has-clue"); });
   } else if (evidenceKey && EVIDENCE[evidenceKey].tool !== inv.selectedTool) {
     logEvent(`「${room}」で反応があったが、道具が合っていないようだ……`, "");
   } else {
@@ -326,15 +542,14 @@ function searchRoom(room) {
     logEvent(line, "result-bad");
   }
 
+  updateJournalPanel();
+  updateHud();
+
   if (inv.time <= 0 || inv.sanity <= 0) {
     inv.time = Math.max(0, inv.time);
     inv.sanity = Math.max(0, inv.sanity);
-    renderInvestigation();
     endCase(false, "sanity");
-    return;
   }
-
-  renderInvestigation();
 }
 
 document.getElementById("btnIdentify").addEventListener("click", () => {
@@ -348,6 +563,13 @@ document.getElementById("btnCancelIdentify").addEventListener("click", () => sho
 document.getElementById("btnRetreat").addEventListener("click", () => {
   if (!investigation || investigation.ended) return;
   endCase(false, "retreat");
+});
+
+document.getElementById("btnJournalToggle").addEventListener("click", () => {
+  document.getElementById("fpJournalPanel").classList.toggle("hidden");
+});
+document.getElementById("btnJournalClose").addEventListener("click", () => {
+  document.getElementById("fpJournalPanel").classList.add("hidden");
 });
 
 function renderIdentifyList() {
@@ -377,7 +599,9 @@ function endCase(success, reason, guessYokai) {
   const inv = investigation;
   if (inv.ended) return;
   inv.ended = true;
-  clearInterval(inv.timer);
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  if (document.pointerLockElement) document.exitPointerLock();
+  document.getElementById("fpJournalPanel").classList.add("hidden");
 
   const base = rewardBase(inv.caseData.yokai.rank);
   let currencyGained = 0;
@@ -389,7 +613,7 @@ function endCase(success, reason, guessYokai) {
     const timeFrac = inv.time / inv.timeMax;
     const sanityFrac = inv.sanity / inv.sanityMax;
     const efficiency = 0.7 + 0.3 * ((timeFrac + sanityFrac) / 2);
-    let mult = efficiency * (save.seasonPass ? 1.3 : 1.0);
+    const mult = efficiency * (save.seasonPass ? 1.3 : 1.0);
     currencyGained = Math.round(base.currency * mult);
     xpGained = base.xp;
     title = `正体特定成功：${inv.caseData.yokai.name}だった！`;
@@ -457,6 +681,83 @@ function addXp(amount) {
     save.level += 1;
     save.xpToNext = Math.round(save.xpToNext * 1.25);
   }
+}
+
+/* ============ 移動・視点操作（マウス／タッチ） ============ */
+
+const fpViewport = document.getElementById("fpViewport");
+const fpCanvas = document.getElementById("fpCanvas");
+
+fpViewport.addEventListener("pointerdown", e => {
+  if (!investigation || investigation.ended) return;
+  if (e.pointerType === "mouse") {
+    if (fpCanvas.requestPointerLock) {
+      const p = fpCanvas.requestPointerLock();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    }
+    return;
+  }
+  const rect = fpViewport.getBoundingClientRect();
+  const localX = e.clientX - rect.left;
+  if (localX < rect.width / 2) {
+    touchMove.pointerId = e.pointerId;
+    touchMove.originX = e.clientX;
+    touchMove.originY = e.clientY;
+    touchMove.active = true;
+    touchMove.x = 0; touchMove.y = 0;
+    positionJoystick(e.clientX - rect.left, e.clientY - rect.top);
+  } else {
+    touchLook.pointerId = e.pointerId;
+    touchLook.lastX = e.clientX;
+    touchLook.lastY = e.clientY;
+    touchLook.active = true;
+  }
+});
+
+fpViewport.addEventListener("pointermove", e => {
+  if (touchMove.active && e.pointerId === touchMove.pointerId) {
+    const dx = e.clientX - touchMove.originX, dy = e.clientY - touchMove.originY;
+    const max = 42;
+    const len = Math.hypot(dx, dy) || 1;
+    const clamped = Math.min(len, max);
+    touchMove.x = (dx / len) * (clamped / max);
+    touchMove.y = (dy / len) * (clamped / max);
+    updateJoystickKnob((dx / len) * clamped, (dy / len) * clamped);
+  } else if (touchLook.active && e.pointerId === touchLook.pointerId) {
+    const dx = e.clientX - touchLook.lastX;
+    touchYawDelta += dx * TOUCH_LOOK_SENS;
+    touchLook.lastX = e.clientX;
+    touchLook.lastY = e.clientY;
+  }
+});
+
+function endTouch(e) {
+  if (e.pointerId === touchMove.pointerId) { touchMove.active = false; touchMove.x = 0; touchMove.y = 0; resetJoystick(); }
+  if (e.pointerId === touchLook.pointerId) { touchLook.active = false; }
+}
+fpViewport.addEventListener("pointerup", endTouch);
+fpViewport.addEventListener("pointercancel", endTouch);
+
+document.addEventListener("mousemove", e => {
+  if (document.pointerLockElement === fpCanvas) {
+    mouseYawDelta += e.movementX * MOUSE_SENS;
+  }
+});
+
+function positionJoystick(localX, localY) {
+  const base = document.getElementById("fpJoystickBase");
+  base.style.left = `${localX}px`;
+  base.style.top = `${localY}px`;
+  base.classList.remove("hidden");
+}
+function updateJoystickKnob(dx, dy) {
+  document.getElementById("fpJoystickKnob").style.transform = `translate(${dx}px, ${dy}px)`;
+}
+function resetJoystick() {
+  const base = document.getElementById("fpJoystickBase");
+  if (base) base.classList.add("hidden");
+  const knob = document.getElementById("fpJoystickKnob");
+  if (knob) knob.style.transform = "translate(0px, 0px)";
 }
 
 /* ============ ショップ ============ */

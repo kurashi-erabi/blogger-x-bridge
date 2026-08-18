@@ -30,39 +30,45 @@
       <button id="rerollCases" class="secondary-btn">依頼を更新する</button>
     </section>
 
-    <section id="screen-investigation" class="screen">
-      <div id="invHud">
-        <div class="hud-row">
-          <div class="hud-block">
-            <div class="hud-label">残り時間</div>
-            <div class="bar"><div id="timeBar" class="bar-fill time"></div></div>
-          </div>
-          <div class="hud-block">
-            <div class="hud-label">サニティ</div>
-            <div class="bar"><div id="sanityBar" class="bar-fill sanity"></div></div>
-          </div>
+    <section id="screen-investigation" class="screen fp-screen">
+      <div id="fpViewport">
+        <canvas id="fpCanvas"></canvas>
+        <div id="fpVignette"></div>
+        <div id="fpCrosshair"></div>
+        <button id="fpRoomPrompt" class="fp-prompt hidden"></button>
+        <div id="fpJoystickBase" class="fp-joystick-base hidden">
+          <div id="fpJoystickKnob" class="fp-joystick-knob"></div>
         </div>
-        <div id="eventLog" class="event-log"></div>
+        <div id="fpHud">
+          <div class="hud-row">
+            <div class="hud-block">
+              <div class="hud-label">残り時間</div>
+              <div class="bar"><div id="timeBar" class="bar-fill time"></div></div>
+            </div>
+            <div class="hud-block">
+              <div class="hud-label">サニティ</div>
+              <div class="bar"><div id="sanityBar" class="bar-fill sanity"></div></div>
+            </div>
+          </div>
+          <div id="eventLog" class="event-log"></div>
+        </div>
       </div>
 
-      <div id="invBody">
-        <div class="panel">
-          <h3>現場（部屋を選び、道具で調べる）</h3>
-          <div id="roomGrid" class="room-grid"></div>
+      <p class="hint fp-help">PC: マウスで視点操作（画面クリックでロック）・WASDで移動・Eで調べる／スマホ: 左半分をドラッグで移動・右半分をドラッグで視点操作</p>
+
+      <div id="fpToolbar">
+        <div id="toolBelt" class="tool-belt"></div>
+        <div class="inv-actions">
+          <button id="btnJournalToggle" class="secondary-btn">ジャーナル</button>
+          <button id="btnIdentify" class="primary-btn">正体を特定する</button>
+          <button id="btnRetreat" class="secondary-btn">撤退する</button>
         </div>
+      </div>
 
-        <div class="panel">
-          <h3>所持道具</h3>
-          <div id="toolBelt" class="tool-belt"></div>
-
-          <h3>調査ジャーナル（発見した証拠）</h3>
-          <ul id="journalList" class="journal-list"></ul>
-
-          <div class="inv-actions">
-            <button id="btnIdentify" class="primary-btn">正体を特定する</button>
-            <button id="btnRetreat" class="secondary-btn">撤退する</button>
-          </div>
-        </div>
+      <div id="fpJournalPanel" class="overlay-panel hidden">
+        <h3>調査ジャーナル（発見した証拠）</h3>
+        <ul id="journalList" class="journal-list"></ul>
+        <button id="btnJournalClose" class="secondary-btn">閉じる</button>
       </div>
     </section>
 

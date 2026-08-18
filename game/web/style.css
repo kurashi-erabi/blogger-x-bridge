@@ -125,36 +125,108 @@ button { font-family: inherit; }
 .case-card .reward { color: var(--good); font-size: .85rem; }
 .case-card button { margin-top: 10px; width: 100%; }
 
-#invHud { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
 .hud-row { display: flex; gap: 20px; }
 .hud-block { flex: 1; }
-.hud-label { font-size: .75rem; color: var(--text-dim); margin-bottom: 4px; }
-.bar { background: #0009; border-radius: 999px; height: 10px; overflow: hidden; }
-.bar-fill { height: 100%; width: 100%; transition: width .3s; }
+.hud-label { font-size: .7rem; color: #cfcfe0; margin-bottom: 4px; text-shadow: 0 1px 3px #000; }
+.bar { background: #0009; border-radius: 999px; height: 9px; overflow: hidden; border: 1px solid #ffffff22; }
+.bar-fill { height: 100%; width: 100%; transition: width .2s linear; }
 .bar-fill.time { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
 .bar-fill.sanity { background: linear-gradient(90deg, var(--good), var(--warn)); }
-.event-log { min-height: 18px; margin-top: 8px; font-size: .8rem; color: var(--warn); }
+.event-log { min-height: 18px; margin-top: 8px; font-size: .8rem; color: #f0eff8; text-shadow: 0 1px 4px #000; }
+.event-log.result-good { color: #8fe8b6; }
+.event-log.result-bad { color: #ff9d9d; }
 
-#invBody { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; }
-@media (max-width: 720px) { #invBody { grid-template-columns: 1fr; } }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+/* ---- 一人称視点（レイキャスティング） ---- */
+.fp-screen { display: none; }
+.fp-screen.active { display: flex; flex-direction: column; gap: 10px; }
 
-.room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 10px; }
-.room-tile {
-  background: var(--panel-2);
+#fpViewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  max-height: 62vh;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 14px 8px;
-  text-align: center;
-  cursor: pointer;
-  font-size: .85rem;
+  touch-action: none;
   user-select: none;
+  cursor: crosshair;
 }
-.room-tile:hover { border-color: var(--accent); }
-.room-tile.searched { opacity: .45; cursor: default; }
-.room-tile.has-clue { border-color: var(--good); }
+#fpCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-.tool-belt { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+#fpVignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 34%, rgba(0,0,0,.65) 100%);
+}
+#fpCrosshair {
+  position: absolute; top: 50%; left: 50%; width: 6px; height: 6px;
+  transform: translate(-50%,-50%);
+  border-radius: 50%;
+  background: #ffffffaa;
+  pointer-events: none;
+}
+
+.fp-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 18px -6px #000a;
+  white-space: nowrap;
+}
+.fp-prompt.done { background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--line); }
+.fp-prompt.hidden { display: none; }
+
+.fp-joystick-base {
+  position: absolute; width: 84px; height: 84px; border-radius: 50%;
+  background: #ffffff14; border: 1px solid #ffffff33;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+}
+.fp-joystick-base.hidden { display: none; }
+.fp-joystick-knob {
+  position: absolute; top: 50%; left: 50%; width: 36px; height: 36px; border-radius: 50%;
+  background: #ffffff33; border: 1px solid #ffffff55;
+  transform: translate(-50%,-50%);
+}
+
+#fpHud {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: 10px 14px;
+  pointer-events: none;
+  background: linear-gradient(180deg, #000a, transparent);
+}
+
+.fp-help { text-align: center; }
+
+#fpToolbar {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.overlay-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+.overlay-panel.hidden { display: none; }
+
+.tool-belt { display: flex; flex-wrap: wrap; gap: 8px; }
 .tool-chip {
   background: var(--panel-2);
   border: 1px solid var(--line);
