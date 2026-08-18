@@ -268,6 +268,7 @@ function startCase(idx) {
     caseData: c,
     rankIdx,
     roomEvidence,
+    hauntRoom: clueRooms[0],
     searchedRooms: new Set(),
     foundEvidence: new Set(),
     selectedTool: null,
@@ -277,6 +278,8 @@ function startCase(idx) {
     sanityMax,
     charmActive,
     ended: false,
+    pendingEnd: false,
+    stunnedUntil: 0,
     grid: buildMap(),
     player: { x: DOOR_X[1] + 1.5, y: CORRIDOR_Y + 0.5, angle: 0 },
   };
@@ -310,6 +313,7 @@ function gameLoop(ts) {
 
 function updatePlayer(dt) {
   const inv = investigation;
+  if (inv.stunnedUntil && performance.now() < inv.stunnedUntil) return;
   let turn = 0;
   if (keys["arrowleft"]) turn -= TURN_SPEED * dt;
   if (keys["arrowright"]) turn += TURN_SPEED * dt;
@@ -352,6 +356,7 @@ function tryMove(dx, dy) {
 
 function updateTimers(dt) {
   const inv = investigation;
+  if (inv.pendingEnd) { updateHud(); return; }
   inv.time -= dt;
   inv.sanity -= dt * 0.18;
   updateHud();
@@ -472,6 +477,7 @@ function updateRoomPrompt() {
 function tryInteract() {
   const inv = investigation;
   if (!inv || inv.ended) return;
+  if (inv.stunnedUntil && performance.now() < inv.stunnedUntil) return;
   const idx = roomIndexAt(inv.player.x, inv.player.y);
   if (idx === null) { logEvent("ここは廊下だ。部屋の中で調べよう。", ""); return; }
   const room = inv.caseData.rooms[idx];
@@ -535,21 +541,66 @@ function searchRoom(room) {
     logEvent(`「${room}」を調べたが、特に異常はなかった。`, "");
   }
 
+  updateJournalPanel();
+  updateHud();
+
+  if (room === inv.hauntRoom) {
+    const attackChance = 0.35 + inv.rankIdx * 0.08;
+    if (Math.random() < attackChance) {
+      triggerAttack();
+      return;
+    }
+  }
+
   const scareChance = 0.06 + inv.rankIdx * 0.035;
   if (Math.random() < scareChance) {
     inv.sanity -= 10 + inv.rankIdx * 3;
     const line = SCARE_LINES[Math.floor(Math.random() * SCARE_LINES.length)];
     logEvent(line, "result-bad");
+    updateHud();
   }
-
-  updateJournalPanel();
-  updateHud();
 
   if (inv.time <= 0 || inv.sanity <= 0) {
     inv.time = Math.max(0, inv.time);
     inv.sanity = Math.max(0, inv.sanity);
     endCase(false, "sanity");
   }
+}
+
+function triggerAttack() {
+  const inv = investigation;
+  const name = inv.caseData.yokai.name;
+  const sanityLoss = 32 + inv.rankIdx * 6;
+  const timeLoss = 14 + inv.rankIdx * 2;
+  inv.sanity -= sanityLoss;
+  inv.time -= timeLoss;
+  logEvent(`『${name}』に襲われた！`, "result-bad");
+  updateHud();
+  playAttackEffect(name);
+  inv.stunnedUntil = performance.now() + 900;
+
+  if (inv.time <= 0 || inv.sanity <= 0) {
+    inv.time = Math.max(0, inv.time);
+    inv.sanity = Math.max(0, inv.sanity);
+    inv.pendingEnd = true;
+    updateHud();
+    setTimeout(() => { if (!inv.ended) endCase(false, "attack"); }, 700);
+  }
+}
+
+function playAttackEffect(name) {
+  const flash = document.getElementById("fpAttackFlash");
+  const text = document.getElementById("fpAttackText");
+  const viewport = document.getElementById("fpViewport");
+  text.textContent = `『${name}』に襲われた！`;
+  flash.classList.remove("play"); void flash.offsetWidth; flash.classList.add("play");
+  text.classList.remove("play"); void text.offsetWidth; text.classList.add("play");
+  viewport.classList.remove("shake"); void viewport.offsetWidth; viewport.classList.add("shake");
+  setTimeout(() => {
+    flash.classList.remove("play");
+    text.classList.remove("play");
+    viewport.classList.remove("shake");
+  }, 1200);
 }
 
 document.getElementById("btnIdentify").addEventListener("click", () => {
@@ -627,6 +678,11 @@ function endCase(success, reason, guessYokai) {
     xpGained = Math.round(base.xp * 0.4);
     title = `推理失敗……正体は${inv.caseData.yokai.name}だった`;
     lines.push(["判定", `失敗（回答: ${guessYokai.name}）`, "result-bad"]);
+  } else if (reason === "attack") {
+    currencyGained = Math.round(base.currency * 0.12);
+    xpGained = Math.round(base.xp * 0.3);
+    title = `『${inv.caseData.yokai.name}』に襲われて意識を失った……`;
+    lines.push(["判定", "強制送還（襲撃）", "result-bad"]);
   } else if (reason === "sanity") {
     currencyGained = Math.round(base.currency * 0.1);
     xpGained = Math.round(base.xp * 0.25);
