@@ -78,7 +78,81 @@ const SCARE_LINES = [
   ・旅館：中央の一直線の廊下を軸に部屋が両側に並ぶ、王道の間取り
   ・洋館：玄関ホールを中心に部屋が放射状につながる洋館ミステリ定番のハブ型
   ・神社：参道を奥へ進むほど深部（本殿）に至る、和風ホラーで馴染みの一本道型
+
+  壁の質感はテーマごとにプロシージャル生成したテクスチャ（Canvas描画のみ、外部
+  画像素材は不使用）をレイキャスティングで貼り付けて表現する。
 */
+const TEXTURE_SIZE = 64;
+
+function makeWoodTexture(base, grain, seams) {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEXTURE_SIZE; canvas.height = TEXTURE_SIZE;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = `rgb(${base.r},${base.g},${base.b})`;
+  ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+  for (let i = 0; i < 9; i++) {
+    const x = (i / 9) * TEXTURE_SIZE + 3;
+    ctx.strokeStyle = `rgba(${grain.r},${grain.g},${grain.b},${0.28 + (i % 3) * 0.12})`;
+    ctx.lineWidth = 1 + (i % 3) * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    for (let y = 0; y <= TEXTURE_SIZE; y += 8) {
+      ctx.lineTo(x + Math.sin((y * 0.35) + i * 2.1) * 1.6, y);
+    }
+    ctx.stroke();
+  }
+  if (seams) {
+    ctx.strokeStyle = "rgba(0,0,0,.35)";
+    ctx.lineWidth = 1;
+    for (let s = 1; s < 4; s++) {
+      const y = (TEXTURE_SIZE / 4) * s;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(TEXTURE_SIZE, y); ctx.stroke();
+    }
+  }
+  return canvas;
+}
+
+function makeStoneTexture(base, mortar) {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEXTURE_SIZE; canvas.height = TEXTURE_SIZE;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = `rgb(${mortar.r},${mortar.g},${mortar.b})`;
+  ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+  const rows = 4, cols = 3, blockH = TEXTURE_SIZE / rows, blockW = TEXTURE_SIZE / cols;
+  for (let row = 0; row < rows; row++) {
+    const offset = (row % 2) * (blockW / 2);
+    for (let col = -1; col <= cols; col++) {
+      const bx = col * blockW + offset + 1;
+      const by = row * blockH + 1;
+      const variance = ((row * 7 + col * 13) % 5) * 4 - 8;
+      ctx.fillStyle = `rgb(${base.r + variance},${base.g + variance},${base.b + variance})`;
+      ctx.fillRect(bx, by, blockW - 2, blockH - 2);
+    }
+  }
+  return canvas;
+}
+
+function makeLacqueredTexture(base, grain) {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEXTURE_SIZE; canvas.height = TEXTURE_SIZE;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = `rgb(${base.r},${base.g},${base.b})`;
+  ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+  for (let i = 0; i < 8; i++) {
+    const x = (i / 8) * TEXTURE_SIZE + 3;
+    ctx.strokeStyle = `rgba(${grain.r},${grain.g},${grain.b},0.4)`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + Math.sin(i * 3.1) * 2, TEXTURE_SIZE);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(35,12,8,.55)";
+  ctx.fillRect(0, 4, TEXTURE_SIZE, 4);
+  ctx.fillRect(0, TEXTURE_SIZE - 8, TEXTURE_SIZE, 4);
+  return canvas;
+}
+
 const THEMES = {
   ryokan: {
     key: "ryokan",
@@ -100,10 +174,10 @@ const THEMES = {
       { x0: 3,  y0: 8, x1: 5,  y1: 8 }, { x0: 10, y0: 8, x1: 12, y1: 8 }, { x0: 16, y0: 8, x1: 18, y1: 8 },
     ],
     spawn: { x: 11.5, y: 7.5, angle: 0 },
-    wallRGB: { r: 138, g: 92, b: 66 },
     accent: "#8a5c42",
     ceil: ["#050608", "#161a24"],
     floor: ["#1b130e", "#0b0806"],
+    texture: makeWoodTexture({ r: 138, g: 92, b: 66 }, { r: 60, g: 38, b: 22 }, true),
   },
   mansion: {
     key: "mansion",
@@ -125,10 +199,10 @@ const THEMES = {
       { x0: 11, y0: 6, x1: 13, y1: 8 },
     ],
     spawn: { x: 9, y: 7, angle: 0 },
-    wallRGB: { r: 96, g: 100, b: 116 },
     accent: "#606474",
     ceil: ["#04050a", "#12141f"],
     floor: ["#15171d", "#08090c"],
+    texture: makeStoneTexture({ r: 96, g: 100, b: 116 }, { r: 40, g: 42, b: 50 }),
   },
   shrine: {
     key: "shrine",
@@ -150,10 +224,10 @@ const THEMES = {
       { x0: 6, y0: 9, x1: 9,  y1: 11 }, { x0: 11, y0: 9, x1: 14, y1: 11 },
     ],
     spawn: { x: 10, y: 1.5, angle: Math.PI / 2 },
-    wallRGB: { r: 150, g: 70, b: 55 },
     accent: "#964637",
     ceil: ["#0a0505", "#1f1210"],
     floor: ["#1f140d", "#0c0704"],
+    texture: makeLacqueredTexture({ r: 150, g: 70, b: 55 }, { r: 80, g: 25, b: 18 }),
   },
 };
 const THEME_KEYS = Object.keys(THEMES);
@@ -483,13 +557,6 @@ function logEvent(text, cls) {
   el.className = "event-log" + (cls ? " " + cls : "");
 }
 
-function shadeColor(rgb, factor) {
-  const r = Math.max(0, Math.min(255, rgb.r * factor)) | 0;
-  const g = Math.max(0, Math.min(255, rgb.g * factor)) | 0;
-  const b = Math.max(0, Math.min(255, rgb.b * factor)) | 0;
-  return `rgb(${r},${g},${b})`;
-}
-
 function castRay(px, py, angle, grid) {
   const dx = Math.cos(angle), dy = Math.sin(angle);
   let mapX = Math.floor(px), mapY = Math.floor(py);
@@ -507,11 +574,13 @@ function castRay(px, py, angle, grid) {
     if (mapY < 0 || mapY >= grid.length || mapX < 0 || mapX >= grid[0].length) { hit = true; break; }
     if (grid[mapY][mapX] === 1) { hit = true; break; }
   }
-  if (!hit) return { dist: 20, side };
+  if (!hit) return { dist: 20, side, wallX: 0 };
   const perpDist = side === 0
     ? (mapX - px + (1 - stepX) / 2) / dx
     : (mapY - py + (1 - stepY) / 2) / dy;
-  return { dist: Math.max(perpDist, 0.0001), side };
+  let wallX = side === 0 ? py + perpDist * dy : px + perpDist * dx;
+  wallX -= Math.floor(wallX);
+  return { dist: Math.max(perpDist, 0.0001), side, wallX };
 }
 
 function resizeFpCanvas() {
@@ -524,6 +593,8 @@ function resizeFpCanvas() {
   canvas.height = Math.max(1, Math.round(rect.height * dpr));
 }
 window.addEventListener("resize", () => { if (investigation && !investigation.ended) resizeFpCanvas(); });
+
+const FP_MAX_RAYS = 480;
 
 function renderFpFrame() {
   const canvas = document.getElementById("fpCanvas");
@@ -550,15 +621,21 @@ function renderFpFrame() {
   const grid = inv.grid;
   const p = inv.player;
   const fov = fovRadians();
-  const numRays = W;
+  const tex = theme.texture;
+  const numRays = Math.min(W, FP_MAX_RAYS);
+  const colWidth = W / numRays;
   for (let i = 0; i < numRays; i++) {
     const rayAngle = p.angle - fov / 2 + (i / numRays) * fov;
-    const { dist, side } = castRay(p.x, p.y, rayAngle, grid);
+    const { dist, side, wallX } = castRay(p.x, p.y, rayAngle, grid);
     const corrected = dist * Math.cos(rayAngle - p.angle);
     const wallHeight = Math.min(H * 1.5, H / Math.max(corrected, 0.0001));
     const shade = Math.max(0.12, 1 - corrected / 13) * (side === 1 ? 0.72 : 1);
-    ctx.fillStyle = shadeColor(theme.wallRGB, shade);
-    ctx.fillRect(i, (H - wallHeight) / 2, 1, wallHeight);
+    const texX = Math.min(TEXTURE_SIZE - 1, Math.floor(wallX * TEXTURE_SIZE));
+    const dx0 = i * colWidth;
+    const dy0 = (H - wallHeight) / 2;
+    ctx.drawImage(tex, texX, 0, 1, TEXTURE_SIZE, dx0, dy0, colWidth + 1, wallHeight);
+    ctx.fillStyle = `rgba(0,0,0,${(1 - shade).toFixed(3)})`;
+    ctx.fillRect(dx0, dy0, colWidth + 1, wallHeight);
   }
 }
 
