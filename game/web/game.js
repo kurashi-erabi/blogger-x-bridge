@@ -169,6 +169,49 @@ function makeCeilingTile(base, line, cells) {
   return canvas;
 }
 
+function makeFusumaTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEXTURE_SIZE; canvas.height = TEXTURE_SIZE;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgb(214,200,168)";
+  ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+  ctx.strokeStyle = "rgba(70,45,25,.9)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, TEXTURE_SIZE - 4, TEXTURE_SIZE - 4);
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(TEXTURE_SIZE / 2, 2); ctx.lineTo(TEXTURE_SIZE / 2, TEXTURE_SIZE - 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2, TEXTURE_SIZE * 0.35); ctx.lineTo(TEXTURE_SIZE - 2, TEXTURE_SIZE * 0.35); ctx.stroke();
+  ctx.fillStyle = "rgba(90,70,40,.5)";
+  ctx.fillRect(TEXTURE_SIZE * 0.44, TEXTURE_SIZE * 0.42, TEXTURE_SIZE * 0.12, TEXTURE_SIZE * 0.05);
+  return canvas;
+}
+
+function makeWoodDoorTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEXTURE_SIZE; canvas.height = TEXTURE_SIZE;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgb(58,38,24)";
+  ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+  ctx.strokeStyle = "rgba(20,12,6,.9)";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(4, 4, TEXTURE_SIZE - 8, TEXTURE_SIZE - 8);
+  ctx.strokeRect(9, 9, TEXTURE_SIZE - 18, TEXTURE_SIZE * 0.38);
+  ctx.strokeRect(9, TEXTURE_SIZE * 0.52, TEXTURE_SIZE - 18, TEXTURE_SIZE * 0.38);
+  ctx.fillStyle = "rgb(180,150,60)";
+  ctx.beginPath(); ctx.arc(TEXTURE_SIZE - 13, TEXTURE_SIZE / 2, 3, 0, Math.PI * 2); ctx.fill();
+  return canvas;
+}
+
+function buildDoorCellMap(doorRects) {
+  const map = new Map();
+  doorRects.forEach((r, i) => {
+    for (let y = r.y0; y <= r.y1; y++) {
+      for (let x = r.x0; x <= r.x1; x++) map.set(`${x},${y}`, i);
+    }
+  });
+  return map;
+}
+
 const THEMES = {
   ryokan: {
     key: "ryokan",
@@ -186,9 +229,12 @@ const THEMES = {
     ],
     corridorRects: [
       { x0: 1, y0: 7, x1: 19, y1: 7 },
+    ],
+    doorRects: [
       { x0: 3,  y0: 6, x1: 5,  y1: 6 }, { x0: 10, y0: 6, x1: 12, y1: 6 }, { x0: 16, y0: 6, x1: 18, y1: 6 },
       { x0: 3,  y0: 8, x1: 5,  y1: 8 }, { x0: 10, y0: 8, x1: 12, y1: 8 }, { x0: 16, y0: 8, x1: 18, y1: 8 },
     ],
+    doorLabel: "ふすま",
     spawn: { x: 11.5, y: 7.5, angle: 0 },
     savePoint: { x: 11.5, y: 7.5 },
     savePointName: "旅館の駐車場に停めた車",
@@ -197,6 +243,7 @@ const THEMES = {
     floor: ["#1b130e", "#0b0806"],
     texture: makeWoodTexture({ r: 138, g: 92, b: 66 }, { r: 60, g: 38, b: 22 }, true),
     ceilingTile: makeCeilingTile({ r: 40, g: 30, b: 22 }, { r: 20, g: 14, b: 9 }, 3),
+    doorTexture: makeFusumaTexture(),
   },
   mansion: {
     key: "mansion",
@@ -205,18 +252,25 @@ const THEMES = {
     roomNames: ["書斎", "大広間", "応接間", "温室", "塔の部屋", "地下室"],
     gridW: 19, gridH: 15,
     roomRects: [
-      { x0: 7,  y0: 1,  x1: 11, y1: 4 },
-      { x0: 7,  y0: 10, x1: 11, y1: 13 },
+      { x0: 7,  y0: 1,  x1: 11, y1: 3 },
+      { x0: 7,  y0: 11, x1: 11, y1: 13 },
       { x0: 2,  y0: 5,  x1: 5,  y1: 9 },
       { x0: 13, y0: 5,  x1: 16, y1: 9 },
-      { x0: 13, y0: 1,  x1: 16, y1: 4 },
-      { x0: 2,  y0: 10, x1: 5,  y1: 13 },
+      { x0: 13, y0: 1,  x1: 16, y1: 3 },
+      { x0: 2,  y0: 11, x1: 5,  y1: 13 },
     ],
     corridorRects: [
       { x0: 7, y0: 5, x1: 11, y1: 9 },
-      { x0: 5, y0: 6, x1: 7,  y1: 8 },
-      { x0: 11, y0: 6, x1: 13, y1: 8 },
     ],
+    doorRects: [
+      { x0: 8,  y0: 4,  x1: 10, y1: 4 },
+      { x0: 8,  y0: 10, x1: 10, y1: 10 },
+      { x0: 5,  y0: 6,  x1: 6,  y1: 8 },
+      { x0: 12, y0: 6,  x1: 13, y1: 8 },
+      { x0: 14, y0: 4,  x1: 15, y1: 4 },
+      { x0: 3,  y0: 10, x1: 4,  y1: 10 },
+    ],
+    doorLabel: "ドア",
     spawn: { x: 9, y: 7, angle: 0 },
     savePoint: { x: 9, y: 7 },
     savePointName: "門前に停めた車",
@@ -225,6 +279,7 @@ const THEMES = {
     floor: ["#15171d", "#08090c"],
     texture: makeStoneTexture({ r: 96, g: 100, b: 116 }, { r: 40, g: 42, b: 50 }),
     ceilingTile: makeCeilingTile({ r: 34, g: 35, b: 42 }, { r: 16, g: 17, b: 22 }, 2),
+    doorTexture: makeWoodDoorTexture(),
   },
   shrine: {
     key: "shrine",
@@ -237,14 +292,19 @@ const THEMES = {
       { x0: 14, y0: 2,  x1: 18, y1: 5 },
       { x0: 2,  y0: 8,  x1: 6,  y1: 11 },
       { x0: 14, y0: 8,  x1: 18, y1: 11 },
-      { x0: 2,  y0: 13, x1: 9,  y1: 15 },
-      { x0: 11, y0: 13, x1: 19, y1: 15 },
+      { x0: 2,  y0: 13, x1: 7,  y1: 15 },
+      { x0: 13, y0: 13, x1: 19, y1: 15 },
     ],
     corridorRects: [
       { x0: 9, y0: 1, x1: 11, y1: 15 },
-      { x0: 6, y0: 3, x1: 9,  y1: 5 }, { x0: 11, y0: 3, x1: 14, y1: 5 },
-      { x0: 6, y0: 9, x1: 9,  y1: 11 }, { x0: 11, y0: 9, x1: 14, y1: 11 },
     ],
+    doorRects: [
+      { x0: 6, y0: 3, x1: 8,  y1: 5 }, { x0: 12, y0: 3, x1: 14, y1: 5 },
+      { x0: 6, y0: 9, x1: 8,  y1: 11 }, { x0: 12, y0: 9, x1: 14, y1: 11 },
+      { x0: 8, y0: 13, x1: 8, y1: 15 },
+      { x0: 12, y0: 13, x1: 12, y1: 15 },
+    ],
+    doorLabel: "ふすま",
     spawn: { x: 10, y: 1.5, angle: Math.PI / 2 },
     savePoint: { x: 10, y: 1.5 },
     savePointName: "鳥居前の道に停めた車",
@@ -253,17 +313,33 @@ const THEMES = {
     floor: ["#1f140d", "#0c0704"],
     texture: makeLacqueredTexture({ r: 150, g: 70, b: 55 }, { r: 80, g: 25, b: 18 }),
     ceilingTile: makeCeilingTile({ r: 42, g: 24, b: 18 }, { r: 22, g: 10, b: 8 }, 4),
+    doorTexture: makeFusumaTexture(),
   },
 };
 const THEME_KEYS = Object.keys(THEMES);
+THEME_KEYS.forEach(key => {
+  const theme = THEMES[key];
+  theme.doorCellMap = buildDoorCellMap(theme.doorRects);
+});
 
 function buildMap(theme) {
+  // Rooms and corridors are carved open; door cells are left as walls
+  // (closed) by default and are opened at runtime when the player
+  // interacts with them.
   const grid = [];
   for (let y = 0; y < theme.gridH; y++) grid.push(new Array(theme.gridW).fill(1));
   const carve = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) grid[y][x] = 0; };
   theme.roomRects.forEach(r => carve(r.x0, r.y0, r.x1, r.y1));
   theme.corridorRects.forEach(r => carve(r.x0, r.y0, r.x1, r.y1));
   return grid;
+}
+
+function setDoorOpen(inv, doorIdx, open) {
+  inv.doorsOpen[doorIdx] = open;
+  const r = inv.theme.doorRects[doorIdx];
+  for (let y = r.y0; y <= r.y1; y++) {
+    for (let x = r.x0; x <= r.x1; x++) inv.grid[y][x] = open ? 0 : 1;
+  }
 }
 
 function isWallAt(x, y, grid) {
@@ -479,6 +555,7 @@ function startCase(idx) {
     stunnedUntil: 0,
     bobPhase: 0,
     useAnim: null,
+    doorsOpen: new Array(theme.doorRects.length).fill(false),
     grid: buildMap(theme),
     player: { x: theme.spawn.x, y: theme.spawn.y, angle: theme.spawn.angle, pitch: 0 },
   };
@@ -617,13 +694,13 @@ function castRay(px, py, angle, grid) {
     if (mapY < 0 || mapY >= grid.length || mapX < 0 || mapX >= grid[0].length) { hit = true; break; }
     if (grid[mapY][mapX] === 1) { hit = true; break; }
   }
-  if (!hit) return { dist: 20, side, wallX: 0 };
+  if (!hit) return { dist: 20, side, wallX: 0, mapX, mapY };
   const perpDist = side === 0
     ? (mapX - px + (1 - stepX) / 2) / dx
     : (mapY - py + (1 - stepY) / 2) / dy;
   let wallX = side === 0 ? py + perpDist * dy : px + perpDist * dx;
   wallX -= Math.floor(wallX);
-  return { dist: Math.max(perpDist, 0.0001), side, wallX };
+  return { dist: Math.max(perpDist, 0.0001), side, wallX, mapX, mapY };
 }
 
 function resizeFpCanvas() {
@@ -688,14 +765,16 @@ function renderFpFrame() {
   const colWidth = W / numRays;
   for (let i = 0; i < numRays; i++) {
     const rayAngle = p.angle - fov / 2 + (i / numRays) * fov;
-    const { dist, side, wallX } = castRay(p.x, p.y, rayAngle, grid);
+    const { dist, side, wallX, mapX, mapY } = castRay(p.x, p.y, rayAngle, grid);
     const corrected = dist * Math.cos(rayAngle - p.angle);
     const wallHeight = Math.min(H * 1.5, H / Math.max(corrected, 0.0001));
     const shade = Math.max(0.12, 1 - corrected / 13) * (side === 1 ? 0.72 : 1);
     const texX = Math.min(TEXTURE_SIZE - 1, Math.floor(wallX * TEXTURE_SIZE));
     const dx0 = i * colWidth;
     const dy0 = (H - wallHeight) / 2;
-    ctx.drawImage(tex, texX, 0, 1, TEXTURE_SIZE, dx0, dy0, colWidth + 1, wallHeight);
+    const doorIdx = theme.doorCellMap.get(`${mapX},${mapY}`);
+    const wallTex = doorIdx !== undefined && !inv.doorsOpen[doorIdx] ? theme.doorTexture : tex;
+    ctx.drawImage(wallTex, texX, 0, 1, TEXTURE_SIZE, dx0, dy0, colWidth + 1, wallHeight);
     ctx.fillStyle = `rgba(0,0,0,${(1 - shade).toFixed(3)})`;
     ctx.fillRect(dx0, dy0, colWidth + 1, wallHeight);
   }
@@ -742,10 +821,28 @@ function drawHandViewmodel(ctx, W, H, inv) {
 }
 
 const SAVE_POINT_RADIUS = 1.3;
+const DOOR_INTERACT_RADIUS = 1.1;
 
 function nearSavePoint(inv) {
   const sp = inv.theme.savePoint;
   return Math.hypot(inv.player.x - sp.x, inv.player.y - sp.y) <= SAVE_POINT_RADIUS;
+}
+
+function isInsideRect(x, y, r) {
+  return x >= r.x0 && x <= r.x1 + 1 && y >= r.y0 && y <= r.y1 + 1;
+}
+
+function nearestDoorIndex(inv) {
+  const doors = inv.theme.doorRects;
+  for (let i = 0; i < doors.length; i++) {
+    const r = doors[i];
+    if (isInsideRect(inv.player.x, inv.player.y, r)) continue; // don't toggle while standing in the doorway itself
+    const cx = Math.max(r.x0, Math.min(inv.player.x, r.x1 + 1));
+    const cy = Math.max(r.y0, Math.min(inv.player.y, r.y1 + 1));
+    const dist = Math.hypot(inv.player.x - cx, inv.player.y - cy);
+    if (dist <= DOOR_INTERACT_RADIUS) return i;
+  }
+  return null;
 }
 
 function playUseAnimation() {
@@ -757,6 +854,16 @@ function updateRoomPrompt() {
   if (!el) return;
   const inv = investigation;
   if (!inv || inv.ended) { el.classList.add("hidden"); return; }
+  el.classList.remove("save-point");
+
+  const doorIdx = nearestDoorIndex(inv);
+  if (doorIdx !== null) {
+    el.classList.remove("hidden", "done");
+    el.textContent = inv.doorsOpen[doorIdx]
+      ? `${inv.theme.doorLabel}を閉める（Eキー / タップ）`
+      : `${inv.theme.doorLabel}を開ける（Eキー / タップ）`;
+    return;
+  }
 
   if (nearSavePoint(inv)) {
     el.classList.remove("hidden");
@@ -767,7 +874,6 @@ function updateRoomPrompt() {
       : `${inv.theme.savePointName}で一息つく（Eキー / タップ）`;
     return;
   }
-  el.classList.remove("save-point");
 
   const idx = roomIndexAt(inv.player.x, inv.player.y, inv.roomRects);
   if (idx === null) { el.classList.add("hidden"); return; }
@@ -786,6 +892,15 @@ function tryInteract() {
   const inv = investigation;
   if (!inv || inv.ended) return;
   if (inv.stunnedUntil && performance.now() < inv.stunnedUntil) return;
+
+  const doorIdx = nearestDoorIndex(inv);
+  if (doorIdx !== null) {
+    const opening = !inv.doorsOpen[doorIdx];
+    setDoorOpen(inv, doorIdx, opening);
+    logEvent(opening ? `${inv.theme.doorLabel}を開けた。` : `${inv.theme.doorLabel}を閉めた。`, "");
+    playUseAnimation();
+    return;
+  }
 
   if (nearSavePoint(inv)) {
     if (inv.sanity >= inv.sanityMax) { logEvent(`${inv.theme.savePointName}：今はこれ以上休む必要はなさそうだ。`, ""); return; }
