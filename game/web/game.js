@@ -227,12 +227,20 @@ const THEMES = {
       { x0: 8,  y0: 9, x1: 12, y1: 13 },
       { x0: 14, y0: 9, x1: 19, y1: 13 },
     ],
+    roomProps: [
+      [{ icon: "🛏️", x: 2, y: 2 },  { icon: "🪑", x: 5, y: 4 }],
+      [{ icon: "🛏️", x: 9, y: 2 },  { icon: "🍵", x: 11, y: 4 }],
+      [{ icon: "🍶", x: 15, y: 2 }, { icon: "🍽️", x: 18, y: 4 }],
+      [{ icon: "🪣", x: 2, y: 10 }, { icon: "🧴", x: 5, y: 12 }],
+      [{ icon: "🕰️", x: 9, y: 10 }, { icon: "📖", x: 11, y: 12 }],
+      [{ icon: "🪴", x: 15, y: 10 }, { icon: "🪑", x: 18, y: 12 }],
+    ],
     corridorRects: [
       { x0: 1, y0: 7, x1: 19, y1: 7 },
     ],
     doorRects: [
-      { x0: 3,  y0: 6, x1: 5,  y1: 6 }, { x0: 10, y0: 6, x1: 12, y1: 6 }, { x0: 16, y0: 6, x1: 18, y1: 6 },
-      { x0: 3,  y0: 8, x1: 5,  y1: 8 }, { x0: 10, y0: 8, x1: 12, y1: 8 }, { x0: 16, y0: 8, x1: 18, y1: 8 },
+      { x0: 3,  y0: 6, x1: 6,  y1: 6 }, { x0: 10, y0: 6, x1: 13, y1: 6 }, { x0: 16, y0: 6, x1: 19, y1: 6 },
+      { x0: 3,  y0: 8, x1: 6,  y1: 8 }, { x0: 10, y0: 8, x1: 13, y1: 8 }, { x0: 16, y0: 8, x1: 19, y1: 8 },
     ],
     doorLabel: "ふすま",
     spawn: { x: 11.5, y: 7.5, angle: 0 },
@@ -259,16 +267,24 @@ const THEMES = {
       { x0: 13, y0: 1,  x1: 16, y1: 3 },
       { x0: 2,  y0: 11, x1: 5,  y1: 13 },
     ],
+    roomProps: [
+      [{ icon: "📚", x: 8, y: 2 },  { icon: "🕯️", x: 10, y: 2 }],
+      [{ icon: "🕰️", x: 8, y: 12 }, { icon: "🖼️", x: 10, y: 12 }],
+      [{ icon: "🪑", x: 3, y: 6 },  { icon: "☕", x: 4, y: 8 }],
+      [{ icon: "🪴", x: 14, y: 6 }, { icon: "🪴", x: 15, y: 8 }],
+      [{ icon: "🔭", x: 14, y: 2 }, { icon: "🗝️", x: 15, y: 2 }],
+      [{ icon: "📦", x: 3, y: 12 }, { icon: "🍷", x: 4, y: 12 }],
+    ],
     corridorRects: [
       { x0: 7, y0: 5, x1: 11, y1: 9 },
     ],
     doorRects: [
-      { x0: 8,  y0: 4,  x1: 10, y1: 4 },
-      { x0: 8,  y0: 10, x1: 10, y1: 10 },
+      { x0: 7,  y0: 4,  x1: 10, y1: 4 },
+      { x0: 7,  y0: 10, x1: 10, y1: 10 },
       { x0: 5,  y0: 6,  x1: 6,  y1: 8 },
       { x0: 12, y0: 6,  x1: 13, y1: 8 },
-      { x0: 14, y0: 4,  x1: 15, y1: 4 },
-      { x0: 3,  y0: 10, x1: 4,  y1: 10 },
+      { x0: 13, y0: 4,  x1: 15, y1: 4 },
+      { x0: 2,  y0: 10, x1: 4,  y1: 10 },
     ],
     doorLabel: "ドア",
     spawn: { x: 9, y: 7, angle: 0 },
@@ -294,6 +310,14 @@ const THEMES = {
       { x0: 14, y0: 8,  x1: 18, y1: 11 },
       { x0: 2,  y0: 13, x1: 7,  y1: 15 },
       { x0: 13, y0: 13, x1: 19, y1: 15 },
+    ],
+    roomProps: [
+      [{ icon: "🪣", x: 3, y: 3 },  { icon: "🕯️", x: 5, y: 4 }],
+      [{ icon: "📿", x: 15, y: 3 }, { icon: "🔔", x: 17, y: 4 }],
+      [{ icon: "🥁", x: 3, y: 9 },  { icon: "🎭", x: 5, y: 10 }],
+      [{ icon: "🖼️", x: 15, y: 9 }, { icon: "📝", x: 17, y: 10 }],
+      [{ icon: "🕯️", x: 3, y: 14 }, { icon: "🔔", x: 6, y: 14 }],
+      [{ icon: "⛩️", x: 15, y: 14 }, { icon: "🪙", x: 17, y: 14 }],
     ],
     corridorRects: [
       { x0: 9, y0: 1, x1: 11, y1: 15 },
@@ -335,10 +359,16 @@ function buildMap(theme) {
 }
 
 function setDoorOpen(inv, doorIdx, open) {
+  // Leave the door's first cell (x0,y0) permanently solid, even when
+  // "open", so the door leaf stays visible - slid to one side of the
+  // opening - instead of the whole doorway just vanishing.
   inv.doorsOpen[doorIdx] = open;
   const r = inv.theme.doorRects[doorIdx];
   for (let y = r.y0; y <= r.y1; y++) {
-    for (let x = r.x0; x <= r.x1; x++) inv.grid[y][x] = open ? 0 : 1;
+    for (let x = r.x0; x <= r.x1; x++) {
+      const isLeaf = x === r.x0 && y === r.y0;
+      inv.grid[y][x] = (open && !isLeaf) ? 0 : 1;
+    }
   }
 }
 
@@ -763,25 +793,69 @@ function renderFpFrame() {
   const tex = theme.texture;
   const numRays = Math.min(W, FP_MAX_RAYS);
   const colWidth = W / numRays;
+  const zbuffer = new Array(numRays);
   for (let i = 0; i < numRays; i++) {
     const rayAngle = p.angle - fov / 2 + (i / numRays) * fov;
     const { dist, side, wallX, mapX, mapY } = castRay(p.x, p.y, rayAngle, grid);
     const corrected = dist * Math.cos(rayAngle - p.angle);
+    zbuffer[i] = corrected;
     const wallHeight = Math.min(H * 1.5, H / Math.max(corrected, 0.0001));
     const shade = Math.max(0.12, 1 - corrected / 13) * (side === 1 ? 0.72 : 1);
     const texX = Math.min(TEXTURE_SIZE - 1, Math.floor(wallX * TEXTURE_SIZE));
     const dx0 = i * colWidth;
     const dy0 = (H - wallHeight) / 2;
     const doorIdx = theme.doorCellMap.get(`${mapX},${mapY}`);
-    const wallTex = doorIdx !== undefined && !inv.doorsOpen[doorIdx] ? theme.doorTexture : tex;
+    // Any door-rect cell that registers as a ray hit must currently be
+    // solid (rays only stop at walls) - whether the door is fully closed
+    // or this is just its always-solid leaf cell - so it always reads
+    // as the door texture, not the surrounding wall texture.
+    const wallTex = doorIdx !== undefined ? theme.doorTexture : tex;
     ctx.drawImage(wallTex, texX, 0, 1, TEXTURE_SIZE, dx0, dy0, colWidth + 1, wallHeight);
     ctx.fillStyle = `rgba(0,0,0,${(1 - shade).toFixed(3)})`;
     ctx.fillRect(dx0, dy0, colWidth + 1, wallHeight);
   }
 
+  drawRoomProps(ctx, W, H, inv, zbuffer, numRays, fov);
+
   ctx.restore();
 
   drawHandViewmodel(ctx, W, H, inv);
+}
+
+function drawRoomProps(ctx, W, H, inv, zbuffer, numRays, fov) {
+  const p = inv.player;
+  const props = inv.theme.roomProps;
+  if (!props || !props.length) return;
+
+  const visible = [];
+  for (const list of props) {
+    for (const prop of list) {
+      const dx = prop.x - p.x, dy = prop.y - p.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 0.2 || dist > 16) continue;
+      let relAngle = Math.atan2(dy, dx) - p.angle;
+      while (relAngle > Math.PI) relAngle -= Math.PI * 2;
+      while (relAngle < -Math.PI) relAngle += Math.PI * 2;
+      if (Math.abs(relAngle) > fov / 2 + 0.3) continue;
+      const screenX = (0.5 + relAngle / fov) * W;
+      visible.push({ prop, dist, screenX });
+    }
+  }
+  visible.sort((a, b) => b.dist - a.dist); // far to near (painter's algorithm)
+
+  for (const { prop, dist, screenX } of visible) {
+    const col = Math.max(0, Math.min(numRays - 1, Math.floor((screenX / W) * numRays)));
+    if (dist > zbuffer[col] + 0.15) continue; // occluded by a nearer wall
+    const size = Math.min(H * 0.9, (H / Math.max(dist, 0.3)) * 0.4);
+    const groundY = H / 2 + (H / Math.max(dist, 0.0001)) * 0.06;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0.4, 1 - dist / 15);
+    ctx.font = `${Math.round(size)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(prop.icon, screenX, groundY);
+    ctx.restore();
+  }
 }
 
 function drawHandViewmodel(ctx, W, H, inv) {
@@ -854,14 +928,15 @@ function updateRoomPrompt() {
   if (!el) return;
   const inv = investigation;
   if (!inv || inv.ended) { el.classList.add("hidden"); return; }
-  el.classList.remove("save-point");
+  el.classList.remove("save-point", "door");
 
   const doorIdx = nearestDoorIndex(inv);
   if (doorIdx !== null) {
     el.classList.remove("hidden", "done");
+    el.classList.add("door");
     el.textContent = inv.doorsOpen[doorIdx]
-      ? `${inv.theme.doorLabel}を閉める（Eキー / タップ）`
-      : `${inv.theme.doorLabel}を開ける（Eキー / タップ）`;
+      ? `🚪 ${inv.theme.doorLabel}を閉める（Eキー / タップ）`
+      : `🚪 ${inv.theme.doorLabel}を開ける（Eキー / タップ）`;
     return;
   }
 
