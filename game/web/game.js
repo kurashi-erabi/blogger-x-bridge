@@ -427,7 +427,9 @@ let lastFrameTime = 0;
 
 const keys = {};
 let mouseYawDelta = 0;
+let mousePitchDelta = 0;
 let touchYawDelta = 0;
+let touchPitchDelta = 0;
 const touchMove = { active: false, pointerId: null, originX: 0, originY: 0, x: 0, y: 0 };
 const touchLook = { active: false, pointerId: null, lastX: 0, lastY: 0 };
 
@@ -437,6 +439,8 @@ const MOUSE_SENS = 0.0028;
 const TOUCH_LOOK_SENS = 0.006;
 const COL_RADIUS = 0.18;
 const BOB_SPEED = 9;
+const PITCH_MAX = 0.55;
+const PITCH_SCREEN_FRACTION = 0.42;
 function fovRadians() { return (save.settings.fovDeg || 66) * Math.PI / 180; }
 
 function startCase(idx) {
@@ -476,13 +480,14 @@ function startCase(idx) {
     bobPhase: 0,
     useAnim: null,
     grid: buildMap(theme),
-    player: { x: theme.spawn.x, y: theme.spawn.y, angle: theme.spawn.angle },
+    player: { x: theme.spawn.x, y: theme.spawn.y, angle: theme.spawn.angle, pitch: 0 },
   };
 
   document.getElementById("fpViewport").style.setProperty("--theme-accent", theme.accent);
 
   Object.keys(keys).forEach(k => delete keys[k]);
   mouseYawDelta = 0; touchYawDelta = 0;
+  mousePitchDelta = 0; touchPitchDelta = 0;
   touchMove.active = false; touchLook.active = false;
   resetJoystick();
 
@@ -525,6 +530,13 @@ function updatePlayer(dt) {
   turn += mouseYawDelta + touchYawDelta;
   mouseYawDelta = 0; touchYawDelta = 0;
   inv.player.angle += turn;
+
+  let pitchDelta = 0;
+  if (keys["arrowup"]) pitchDelta += TURN_SPEED * dt;
+  if (keys["arrowdown"]) pitchDelta -= TURN_SPEED * dt;
+  pitchDelta += mousePitchDelta + touchPitchDelta;
+  mousePitchDelta = 0; touchPitchDelta = 0;
+  inv.player.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, inv.player.pitch + pitchDelta));
 
   const fwd = { x: Math.cos(inv.player.angle), y: Math.sin(inv.player.angle) };
   const right = { x: Math.cos(inv.player.angle + Math.PI / 2), y: Math.sin(inv.player.angle + Math.PI / 2) };
@@ -646,10 +658,11 @@ function renderFpFrame() {
 
   const bobY = Math.sin(inv.bobPhase * 2) * H * 0.006;
   const bobX = Math.cos(inv.bobPhase) * H * 0.003;
-  const margin = H * 0.03;
+  const pitchOffsetPx = (inv.player.pitch / PITCH_MAX) * H * PITCH_SCREEN_FRACTION;
+  const margin = H * 0.03 + Math.abs(pitchOffsetPx);
 
   ctx.save();
-  ctx.translate(bobX, bobY);
+  ctx.translate(bobX, bobY + pitchOffsetPx);
 
   const ceilGrad = ctx.createLinearGradient(0, -margin, 0, H / 2);
   ceilGrad.addColorStop(0, theme.ceil[0]);
@@ -1100,7 +1113,9 @@ fpViewport.addEventListener("pointermove", e => {
     updateJoystickKnob((dx / len) * clamped, (dy / len) * clamped);
   } else if (touchLook.active && e.pointerId === touchLook.pointerId) {
     const dx = e.clientX - touchLook.lastX;
+    const dy = e.clientY - touchLook.lastY;
     touchYawDelta += dx * TOUCH_LOOK_SENS * save.settings.touchSens;
+    touchPitchDelta += -dy * TOUCH_LOOK_SENS * save.settings.touchSens;
     touchLook.lastX = e.clientX;
     touchLook.lastY = e.clientY;
   }
@@ -1116,6 +1131,7 @@ fpViewport.addEventListener("pointercancel", endTouch);
 document.addEventListener("mousemove", e => {
   if (document.pointerLockElement === fpCanvas) {
     mouseYawDelta += e.movementX * MOUSE_SENS * save.settings.mouseSens;
+    mousePitchDelta += -e.movementY * MOUSE_SENS * save.settings.mouseSens;
   }
 });
 
